@@ -1,0 +1,175 @@
+\documentclass[letterpaper, 12pt]{article}
+\usepackage[pass]{geometry}
+\usepackage{amsmath,amssymb}
+
+\usepackage{amsmath}
+\usepackage{caption}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\restylefloat{table}
+\usepackage{subcaption}
+
+
+
+\makeatletter
+\renewcommand{\fnum@figure}{Exhibit \thefigure}
+\renewcommand{\fnum@table}{Exhibit \thefigure}
+\captionsetup[subfigure]{labelformat=simple}
+\renewcommand\thesubfigure{Panel \Alph{subfigure}:}
+
+\makeatother
+
+\begin{document}
+ 
+\title{Blink Margin Engine}
+\author{Proskurin Oleksandr}
+\maketitle
+
+\begin{abstract}
+The paper describes a novel approach in calculating margin requirements for under-collateralized cross-chain leverage, considering DeFi-specific primitives such as liquidity pools, bridging and concentrated liquidity.
+Key findings: 
+\begin{enumerate}
+  \item Blink Margin Engine is a centralized system designed to calculate portfolio risk using complex scenario analysis of the underlying asset prices.
+  \item The Engine is designed to provide portfolio risk analytics in a multi-chain environment. 
+  \item Blink Margin Engine is designed to become a universal middleware and standard in DeFi margin calculation for trading operations.
+  \end{enumerate}
+\end{abstract}
+
+
+\section{Introduction}
+The recent massive explosion of DeFi activity and innovation led to decentralized lending becoming a key part of an emerging financial system. Early DeFi success has been driven by over-collateralized lending protocols such as Aave and Compound, which enable borrowers to deposit collateral in one token and withdraw part of its value in another. However, as the system becomes increasingly mature, on-chain market participants, especially asset managers, lack access to undercollateralized loans, which provide more efficient capital allocation.
+
+AAVE and Compound don't impose restrictions on operations done with leverage a user receives through their platform, which leads to the inefficient relative size of a loan in relation to the value of the collateral - \textbf {overcollateralized loan}. Asset managers are willing to accept constraints on operations done with leverage (trading-specific only) in exchange for an undercollateralized, capital-efficient loan which gives the ability to provide a better return on invested capital. On the other hand, undercollateralized loans, if liquidated incorrectly, impose creditors on serious risks, which is why a sophisticated system (\textbf {Margin Engine}) is needed to define when a user's loan should be liquidated. 
+
+Secondly, the risks of several positions in a trader's portfolio may offset each other. For example, a portfolio consisting of ETH/USDC liquidity pool position hedged by short perpetual in ETH/USDT has much lower risk than an unhedged LP position in BTC/USDT or ETH/USDT. Margin calculations which account for total portfolio P\&L (\textbf {Cross Margin}) instead of segregated risk calculation for each position (\textbf {Isolated Margin}) improve capital and leverage efficiency for professional asset managers as maintenance margin requirements in Cross Margin is much lower. 
+
+In this paper, we propose a unified framework for calculating cross-chain portfolio margin for under-collateralized loans taking into account De-Fi specifics:
+  
+  \begin{enumerate}
+  \item Asset classes such as Liquidity Pools, Concentrated Liquidity LPs, and Liquid Staking Derivatives (LSD).
+  \item Automated Market Makers (AMM) and Price Oracles.
+  \item Gas costs and risks associated with Bridging.
+  \end{enumerate}
+
+ 	
+
+
+\section{Standard Portfolio Analysis of Risk (SPAN) Model}
+
+The problem of multi-asset portfolio risk calculation is a well-researched and known issue solved in the traditional finance space. SPAN was developed in 1988 by Chicago Mercantile Exchange Inc. (CME) to effectively access risk on an overall portfolio basis. It calculates the potential loss in positions and sets this value as the initial margin payable by the firm holding the portfolio. As a result, SPAN provides for offsets between correlated positions and enhances margining efficiency. SPAN model has proven to be an efficient and robust way to calculate portfolio margin for multi-asset derivatives portfolios. It became the official Performance Bond mechanism of 54 exchanges and clearing organizations worldwide, making it the global standard for portfolio margining. 
+
+SPAN model relies on scenario analysis and asset price simulations, taking into account their correlation structure. Given that, positions P\&Ls are calculated and aggregated on a portfolio level. Finally, SPAN groups financial instruments with the same underlying for analysis and calculates the portfolio's Value at Risk (Var) metric, which serves as input for final margin calculations. In Blink, we use SPAN scenario analysis of the underlying approach as a starting point for Margin Engine design.   
+
+As Blink Margin Engine relies upon heavy computations and scenario analysis, it is impossible to put these calculations on a blockchain, which is why it is a centralized system. In the meantime, it is still designed to be used as a standard in the DeFi space for decision-making regarding portfolio risk and maintenance margin calculation. 
+
+\section {Architecture}
+
+Blink Margin Engine analyses the portfolio of whitelisted (supported) assets, tokens and DEXs in real time. 
+The methodology can be configured for any universe however, we will use a whitelisted universe from Blink Protocol. The list of supported assets, pools, and DEXs for Blink Protocol can be found in Appendix 1.
+
+The system is designed to give its user an answer to the following questions:
+  \begin{enumerate}
+  \item What is the current portfolio Net Asset Value (NAV) relative to a borrowed asset?
+  \item What is the stress-tested NAV? What is risk-factor and maintenance margin value right now?
+  \item What is the market impact/cost of liquidating token X for token Y on any supported DEX considering market impact?
+  \item What is the gas/bridging cost of liquidating a portfolio using defined Liquidation Routing?
+  \item What is the total liquidity pool position value relative to a borrowed asset considering fees to be claimed?
+  \item What actions and trades need to be completed to liquidate a portfolio considering the Liquidation Routing scheme if a portfolio should be liquidated right now?
+  \end{enumerate}
+
+
+\subsection{Reference Price and Liquidation Routing}
+The key purpose of any margin engine is to calculate the initial and maintenance margin at any given time. If the trader's portfolio can not satisfy maintenance margin requirements -  they get a margin call, and the portfolio is liquidated. As the liquidation process is quite specific in the DeFi space, especially in a multi-chain environment, market impact, gas, and bridging costs should also be included in margin calculations to detect liquidation levels.
+
+First, we need to define \textbf {Reference Price} - the price of an asset X relative to the \textbf{Leverage Asset}. Blink Margin Engine uses ChainLink Oracles for that. For example, if a trader took USDC leverage on Ethereum to open a leveraged position in ETH, then ETH/USDC (Ethereum) Chainlink Oracle is used to determine Reference Price at any given time. Secondly, we introduce \textbf {Liquidation Routing} - the weight of each DEX in the liquidation process if a margin call happens. The Liquidation Routing table for Blink Protocol can be found in Appendix 2. Taking the example above, in Blink Protocol, for an open ETH position, if USDC is used as leverage, 70\% of ETH will be converted back into USDC on Uniswap, and 30\% will be swapped using 1INCH. We need to swap each token from the user's portfolio during liquidation into a leverage asset to bring it back into the liquidity pool where it was taken. Both Reference Price and Liquidation Routing are used in \textbf{Mark Price} calculations.
+
+\subsection{Mark Price}
+
+Mark Price is used to get an estimate of currently open position values. As Mark Price is used to estimate current position value considering unrealized profit and loss, it should consider current market liquidity for a specific token pair (asset/borrowed asset). That is why we introduce \textbf{Market Impact Factor}. Market Impact Factor estimates the market impact for any DEX from Liquidation Routing if a trader's position in token X is liquidated. That is why Market Impact Factor is a function of:
+  \begin{enumerate}
+  \item DEX and current DEX liquidity.
+  \item Trader's position size in a token. Big, concentrated positions will have a bigger market impact. 	
+  \end{enumerate}
+
+At any given time $t$ for a token $i$, Mark Price is \begin{center} $\text{Mark Price}^{i}_{t}=\text{Reference Price}^{i}_{t}\times[1-\sum_{j=1}^{N}  w_{j}\times f_{t}^{j}\times(1+MarketImpactPct)]$ \end{center}
+where
+
+\begin{itemize}
+\item $\text{Reference Price}^{i}_{t}$ - ChainLink Oracle price of a trading pair token/borrowed asset.
+\item $w_{j}$ - the percentage of DEX $j$ in Liquidation Routing of a token $i$ (for example, in Blink Protocol, for ETH if the Borrowed asset is DAI,  Uniswap weights 70\%).
+\item $N$ - number of exchanges in Liquidation Routing for a token $i$ 
+\item $f_{t}^{j}$ - Market Impact Factor for DEX $j$ on token $i$.
+	
+\end{itemize}
+
+
+To give even more margin of safety, Blink Margin Engine inflates Market Impact Factor Calculations by $MarketImpactPct$ = 15\% to consider unexpected market impact during liquidations. 
+
+As we have previously said, $f_{t}^{j} = F(\widetilde{E}, S, L_{t})$ where $\widetilde{E}$ defines DEX and how execution is handled on a particular DEX (AMM, Order-Book, RFQ), $S$ is size of a position, $L_{t}$ is liquidity on a given DEX at time $t$. Introducing the Market Impact Factor gives us the flexibility in estimating the cost of liquidation where Liquidation Routing may consist of both AMM and Order-Book-based exchanges.
+
+
+\subsection{Estimating Market Impact Factor for Order-Book-based Exchanges}
+Blink Margin Engine uses a "walking over" limit order book approach to estimate Market Impact Factor. We use 5 levels of the limit order book to estimate the average execution price: $$ \text{Average Execution Price}_{t} = \frac{\sum\limits_{i=1}^{5} (P_i \times Q_i)}{\sum\limits_{i=1}^{5} Q_i} $$
+
+In this formula, $P_i$ represents the price at which the market order was executed at level $i$ of the limit order book, and $Q_i$ represents the number of shares executed at that level. The summation is taken over all $n$ levels of the limit order book that were walked over by the market order. The numerator calculates the total value of shares executed at each price level, and the denominator calculates the total quantity of shares executed. The resulting value gives the average price per share at which the market order was executed.
+
+$Q_i$ depends on liquidity at a particular level and liquidity on previous levels of the limit order book. Suppose we have the following limit order book for ETH/DAI pair:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{| c | c |}
+\hline
+ Buy orders & Sell orders \\
+\hline
+ 100  at 1000.00 & 200  at 1005 \\
+ 50  at 995 & 150  at 1010 \\
+ 75  at 990 & 100  at 1020 \\
+ 25  at 985 & 50  at 1030 \\
+ 50  at 980 & 25  at 1035 \\
+\hline
+\end{tabular}
+\end{table}
+
+Now let's consider a market order to buy 200 ETH. The market order "walks over" the limit order book, executing at each level until filled.
+The first 100 ETH of the market order will fill the first level of the buy side of the order book at a price of $1000.00$, which exhausts this level of the order book.
+The remaining 100 ETH of the market order will then fill the next level of the buy side of the order book at a price of $995$, which exhausts this level of the order book.
+The market order is now filled, having bought 200 shares at an average executing price of:
+$$\frac{(100 \times 1000) + (100 \times 995)}{200} = 997.5$$
+
+
+So the average executing price of the market order that walked over 5 levels of the limit order book was $997.5$.
+
+TODO: correct the example as it should use SELL ORDERS.
+
+
+Finally, the Market Impact Factor is the absolute percent difference between Average Execution Price and Mid-Price, $V_{t} = (bid_{t} + ask_{t})/2$: $$f_{t} = |\frac{V_{t}}{\text{Average Execution Price}_{t}}}-1|$$
+In our example, the Market Impact Factor equals $\frac{(1000+1005)/2}{975} = TODO$
+
+
+
+\subsection{Estimating Market Impact Factor for AMM Exchanges}
+
+
+
+
+
+
+\section {References}
+\begin{enumerate}
+	\item \textit{Commitments of Traders.}.Commodity Futures Trading Commission. Accessed January 27, 2021. 
+	
+	https://www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm. 
+	\item Lopez De Prado,M.2018.\textit{Advances in Financial Machine Learning}. Hoboken: John Wiley \&\ Sons. 
+	\item Lopez De Prado, M.2020b.\textit{Machine Learning for Asset Managers}. Cambridge: Cambridge University Press.
+	\item Kahn, A. D.1986.\textit{“Conformity with Large Speculators: A Test of Efficiency in the Grain Futures Market.”} Atlantic Econ. J. 14: 51-55.
+	\item Wang, C.2001.\textit{“Investor Sentiment and Return Predictability in Agricultural Futures Markets.”} J. Futures Mkts. 21,10: 929–952.
+	\item Bryant, H., D. A. Bessler, and M. S. Haigh.2006.\textit{“Causality in Futures Markets”}. J. Futures Mkts. 26,11: 1039–1057.
+	\item Sanders, D. R., Irwin, S. H. and Merrin, R. P. 2009. \textit{"Smart Money: The Forecasting Ability of CFTC Large Traders in Agricultural Futures Markets"}. Journal of Agricultural and Resource Economics 34(2):276–296.
+	\item S., Keenan Mark J. \textit{Advanced Positioning, Flow and Sentiment Analysis in Commodity Markets Bridging Fundamental and Technical Analysis.} Chichester, West Sussex, United Kingdom: Wiley, 2020. 
+	\item Lundberg S. M., and S. I. Lee. \textit{A Unified Approach to Interpreting Model Predictions.} NeurIPS Proceedings: Advances in Neural Information Processing Systems, 2017.
+	
+\end{enumerate}
+
+\end{document}
