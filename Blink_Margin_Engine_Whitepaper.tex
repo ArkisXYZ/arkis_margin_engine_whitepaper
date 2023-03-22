@@ -3,6 +3,7 @@
 \usepackage{amsmath,amssymb}
 
 \usepackage{amsmath}
+\usepackage{graphicx}
 \usepackage{caption}
 \usepackage{graphicx}
 \usepackage{float}
@@ -67,7 +68,7 @@ As Blink Margin Engine relies upon heavy computations and scenario analysis, it 
 \section {Architecture}
 
 Blink Margin Engine analyses the portfolio of whitelisted (supported) assets, tokens and DEXs in real time. 
-The methodology can be configured for any universe however, we will use a whitelisted universe from Blink Protocol. The list of supported assets, pools, and DEXs for Blink Protocol can be found in Appendix 1.
+The methodology is designed to be configured for any universe/Liquidation Routing/Asset Price Information. However, we will use a whitelisted universe from Blink Protocol. The list of supported assets, pools, and DEXs for Blink Protocol can be found in Appendix 1.
 
 The system is designed to give its user an answer to the following questions:
   \begin{enumerate}
@@ -105,12 +106,15 @@ where
 \end{itemize}
 
 
-To give even more margin of safety, Blink Margin Engine inflates Market Impact Factor Calculations by $MarketImpactPct$ = 15\% to consider unexpected market impact during liquidations. 
+To give even more margin of safety, Blink Margin Engine inflates Market Impact Factor сalculations by $MarketImpactPct$ = 15\% to consider unexpected market impact during liquidations. 
 
-As we have previously said, $f_{t}^{j} = F(\widetilde{E}, S, L_{t})$ where $\widetilde{E}$ defines DEX and how execution is handled on a particular DEX (AMM, Order-Book, RFQ), $S$ is size of a position, $L_{t}$ is liquidity on a given DEX at time $t$. Introducing the Market Impact Factor gives us the flexibility in estimating the cost of liquidation where Liquidation Routing may consist of both AMM and Order-Book-based exchanges.
+As we have previously said, $f_{t}^{j} = F(\widetilde{E}, S, L_{t})$ where $\widetilde{E}$ defines DEX and how execution is handled on a particular DEX (AMM, Order-Book, RFQ), $S$ is size of a position, $L_{t}$ is liquidity on a given DEX at time $t$. Introducing the Market Impact Factor (MIF) gives us the flexibility in estimating the cost of liquidation where Liquidation Routing may consist of both AMM and Order-Book-based exchanges.
 
 
 \subsection{Estimating Market Impact Factor for Order-Book-based Exchanges}
+
+There are various well-known models of quantifying market impact in order-book markets such as TODO refer! Almgren (2005), Kissel (2004), Kyle. However, none of them are used in Blink Margin Engine. The reason for that is a fact that in market impact estimates, the Engine needs to answer, "By how much liquidating a large order size with a single market order will shift the price from the equilibrium?". This decision is mostly driven by a fact that the liquidation process on Blink Protocol is done through one order for each DEX in Liquidation Route. Once the liquidation process in the protocol becomes more advanced (splitting orders into smaller parts, VWAP and other advanced execution algorithms), - market impact estimation will be changed accordingly.  
+
 Blink Margin Engine uses a "walking over" limit order book approach to estimate Market Impact Factor. We use 5 levels of the limit order book to estimate the average execution price: $$ \text{Average Execution Price}_{t} = \frac{\sum\limits_{i=1}^{5} (P_i \times Q_i)}{\sum\limits_{i=1}^{5} Q_i} $$
 
 In this formula, $P_i$ represents the price at which the market order was executed at level $i$ of the limit order book, and $Q_i$ represents the number of shares executed at that level. The summation is taken over all $n$ levels of the limit order book that were walked over by the market order. The numerator calculates the total value of shares executed at each price level, and the denominator calculates the total quantity of shares executed. The resulting value gives the average price per share at which the market order was executed.
@@ -151,6 +155,129 @@ In our example, the Market Impact Factor equals $\frac{(1000+1005)/2}{975} = TOD
 
 \subsection{Estimating Market Impact Factor for AMM Exchanges}
 
+\subsection{Estimating Market Impact Factor for DEX Aggregators(1INCH)}
+Aggregators are the DeFi equivalent of smart order routing systems. Whenever a token trades in multiple pools, aggregators will buy the token across all pools to minimize the price impact on each one of them. Instead of spreading the trade over time in a single market, this order executes at once, spread over many possible markets. Aggregators also command substantially higher gas costs than a single trade, similar to splitting trades manually. TODO reference https://research.paradigm.xyz/amm-price-impact
+TODO: add how be determine price impact on 1INCH.
+
+
+\subsection{Mark Price Calculation Example}
+Imagine a trader borrowed 2000 USDT to buy 1 ETH. At the time $t_{1}$, the Reference Price of ETH/USDT is 1000 USDT. Using the Liquidation Routing from Blink Protocol, we can see that if liquidated:
+\begin{itemize}
+	\item 70$\%$ of ETH will be liquidated through Uniswap.
+	\item 30$\%$ of ETH will be liquidated through 1INCH.
+\end{itemize}
+
+Using the algorithms described in 3.4 and 3.5, we may define that the market impact factor for for liquidating:
+\begin{itemize}
+	\item 0.7 ETH on Uniswap is 0.03$\%$.
+	\item 3.7 ETH on 1INCH is 0.01$\%$.
+\end{itemize}
+
+Which results in a Mark Price of ETH relative to USDT:
+$$1000*(1-0.7*0.0003*1.15-0.3*0.0001*1.15)=999.724$$
+
+\section{Portfolio Value Calculations}
+
+The first step in calculating portfolio maintenance margin and a liquidation risk factor is to estimate each portfolio position's value separately.
+
+\subsection{Token Price Calculations}
+
+For whitelisted tokens, we use Mark Price to estimate the price of a token relative to a borrowed asset, however, several tokens have a \textbf{valuation haircut}:
+
+\begin{itemize}
+	\item stETH, wstETH: -5$\%$
+	\item CRV: -15$\%$
+\end{itemize}
+
+
+For example, if the Mark Price of CRV/USDT is 1.088 and a user has 100 CRV in their portfolio in Blink Finance, the value of the position will be:
+$$1.088 * 100 * (1-0.15)= 92.48$$
+
+
+\subsection{Liquidity Pools Calculations}
+Liquidity pools consist of staked assets and fees (rewards) to be claimed. If a user claims fees - their price is calculated by the Token Price Calculations method only if a fee token is whitelisted inside Blink Margin Engine. Non-whitelisted tokens are not included in portfolio value calculations.
+Staked assets are calculated using the Token Price Calculations methodology. 
+
+Unclaimed rewards (if rewards tokens are whitelisted by Blink) are calculated using the Token Price Calculations algorithm with a \textbf{haircut of 50$\%$}.
+
+For example, if a user has Uniswap V3 position with \textbf{5 ETH and 10 000 USDT} and \textbf{0.7 ETH and 100 USDT in unclaimed rewards} to be claimed with the borrowed asset is USDT, and ETH/USDT Mark Price is 1000 then its position value is:
+$$(5 * 1000 + 10000) + (0.7*1000+100)*0.5= 15400$$
+
+
+\subsection{Aggregating Portfolio by Assets}
+As previously discussed, position value significantly influences the Market Impact Factor in Mark Price calculations, so we must aggregate portfolio positions by tokens. 
+
+So, the position value in a token is the sum of all tokens on all chains, tokens in liquidity pools, and fees to be claimed in this token. For example, a trader has a portfolio built by borrowing USDC:
+\begin{itemize}
+	\item 10 wETH, 5 wBTC on Ethereum.
+	\item 7 wETH, 10 000 USDT on BSC.
+	\item Uniswap V3 position (10 wETH x 6000 DAI) + fees (3 wETH, 200 DAI) on Ethereum.
+	\item Curve LP position in (5000 USDT/5000 USDC) and fees to be claimed (100 CRV, 200 USDT, 5000 USDC).
+\end{itemize}
+
+As a result of aggregation we have:
+\begin{itemize}
+	\item wETH: 10+7+10+3 = 30 wETH.
+	\item wBTC: 5 wBTC.
+	\item USDT: 10000 + 5000 + 200 = 15200 USDT.
+	\item DAI: 6000 + 200 = 6200 DAI.
+	\item USDC: 5000 + 5000 = 10000 USDC.
+	\item CRV: 100 CRV.
+\end{itemize}
+
+The aggregated token values are now used as inputs to calculate the Market Impact Factors. As we can see after aggregation we have a relatively big position in wETH, which is why its the Market Impact Factor will influence the Mark Price heavily due to its big value.
+
+For borrowed asset in a portfolio (USDC in the example above), MIF equals 0 as no swap activities are needed during liquidation. Only a return to LP is needed.
+
+\section{Adjusting Portfolio Value for Gas/Bridging Fees}
+This part of portfolio risk factor calculation applies only if the protocol/leverage entity intends to liquidate bad debt positions. In Blink Protocol, for example, the liquidation is done through Liquidation Routing without relying on external liquidators. The adjustment is needed as gas and bridging costs may significantly impact the overall liquidation cost. There are 4 types of actions that incur gas costs:
+
+\begin{itemize}
+	\item Asset swap (when we need to swap assets back to borrowed asset).
+	\item Extract liquidity from a pool.
+	\item Bridging.
+	\item Return funds to LP.
+\end{itemize}
+
+For tokens bridging fees arise if a token is not on the chain defined by the Liquidation Routing. For pools, gas fees for extracting liquidity/claiming fees are added.
+
+From the example above:
+\begin{itemize}
+	\item Bridge+gas fees: 7wETH, 10 000 USDT from BSC to Ethereum.
+	\item Gas fees: extracting liquidity from Uniswap V3, Curve.
+	\item Gas fees: swapping 30 wETH, 5wBTC, 15200 USDT, 6200 DAI,  100 CRV.
+	\item Gas fees: return USDC to Liquidity Pool.
+\end{itemize}
+
+Finally, the process of Portfolio Value Calculation can be described as:
+\begin{enumerate}
+	\item Aggregate portfolio positions by tokens.
+	\item Define the Market Impact Factor as a function of position value for each token in a portfolio.
+	\item Get tokens Mark Prices.
+	\item Get the sum of token prices/liquidity pools/fees prices using Mark Prices and apply haircuts where needed.
+	\item Get the sum of assets and adjust it for gas/bridging fees.
+\end{enumerate}
+
+\section{Portfolio Stress-Test Scenario Analysis}
+Before calculating the \textbf{Risk Factor} used to determine if a user should be liquidated, we need to calculate \textbf{Stress Tested Portfolio Value}. Let’s use the example from above to show how calculations work in this case.
+
+For all assets held in the user's portfolio, we want to understand \textbf{“What happens to a position if its Mark Price drops by X$\%$ relative to the Leverage Asset?”}. All calculations for a trader's portfolio are under relative to a borrowed asset  
+
+We stress-test available assets based on either exchange rate risk or de-pegging (for stablecoins, ETH/stETH) risk. Based on a token risk and borrowed asset, we apply a different rate of change in the scenario matrix. Scenario matrix, $\boldsymbol{\Omega}$, is a symmetric matrix where each element represents a $\%$ change drop of the price of asset $i$ relative to borrowed asset $j$. Scenario Matrix is a configurable parameter of Blink Margin Engine, in our example, we will use the matrix from Blink Protocol:
+
+$$\resizebox{\textwidth}{!}{\begin{tabular}{|l|c|c|c|c|c|c|c|c|c|c|c|c|c|}
+  \hline
+   & wETH(ETH) & wstETH & wBTC & DAI & USDT & USDC & FRAX & CRV & FXS & LIDO & MATIC & Col 12 & Col 13 \\
+  \hline
+  wETH(ETH) & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 & 12 & 13 \\
+  wstETH & 14 & 15 & 16 & 17 & 18 & 19 & 20 & 21 & 22 & 23 & 24 & 25 & 26 \\
+  wBTC & 27 & 28 & 29 & 30 & 31 & 32 & 33 & 34 & 35 & 36 & 37 & 38 & 39 \\
+  DAI & 40 & 41 & 42 & 43 & 44 & 45 & 46 & 47 & 48 & 49 & 50 & 51 & 52 \\
+  USDT & 53 & 54 & 55 & 56 & 57 & 58 & 59 & 60 & 61 & 62 & 63 & 64 & 65 \\
+ USDC & 66 & 67 & 68 & 69 & 70 & 71 & 72 & 73 & 74 & 75 & 76 & 77 & 78 \\
+  Row 7 & 79 & 80 & 81 & 82 & 83 & 84 & 85 & 86 & 87 & 88 & 89 & 90 & 91 \\
+  \hline
+\end{tabular}}$$
 
 
 
