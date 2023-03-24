@@ -57,17 +57,19 @@ In this paper, we propose a unified framework for calculating cross-chain portfo
  	
 
 
-\section{Standard Portfolio Analysis of Risk (SPAN) Model}
+\section{Standard Portfolio Analysis of Risk (SPAN) and Standard Initial Margin Model (SIMM)}
 
 The problem of multi-asset portfolio risk calculation is a well-researched and known issue solved in the traditional finance space. SPAN was developed in 1988 by Chicago Mercantile Exchange Inc. (CME) to effectively access risk on an overall portfolio basis. It calculates the potential loss in positions and sets this value as the initial margin payable by the firm holding the portfolio. As a result, SPAN provides for offsets between correlated positions and enhances margining efficiency. SPAN model has proven to be an efficient and robust way to calculate portfolio margin for multi-asset derivatives portfolios. It became the official Performance Bond mechanism of 54 exchanges and clearing organizations worldwide, making it the global standard for portfolio margining. 
 
-SPAN model relies on scenario analysis and asset price simulations, taking into account their correlation structure. Given that, positions P\&Ls are calculated and aggregated on a portfolio level. Finally, SPAN groups financial instruments with the same underlying for analysis and calculates the portfolio's Value at Risk (Var) metric, which serves as input for final margin calculations. In Blink, we use SPAN scenario analysis of the underlying approach as a starting point for Margin Engine design.   
+SPAN model relies on scenario analysis and asset price simulations, taking into account their correlation structure. Given that, positions P\&Ls are calculated and aggregated on a portfolio level. Finally, SPAN groups financial instruments with the same underlying for analysis and calculates the portfolio's Value at Risk (VaR) metric, which serves as input for final margin calculations. 
 
-As Blink Margin Engine relies upon heavy computations and scenario analysis, it is impossible to put these calculations on a blockchain, which is why it is a centralized system. In the meantime, it is still designed to be used as a standard in the DeFi space for decision-making regarding portfolio risk and maintenance margin calculation. 
+At the same time, the SIMM model developed by International Swaps and Derivatives Association(ISDA) is a common methodology for calculating the initial margin for uncleared OTC derivatives. It also relies on asset price simulations to calculate potential portfolio risks and imposes several haircuts on the market values of riskier securities. 
+
+In Blink, we use SPAN/SIMM scenario analysis of the underlying and haircuts approach as a starting point for Margin Engine design. As Blink Margin Engine relies upon heavy computations and scenario analysis, it is impossible to put these calculations on a blockchain, which is why it is a centralized system. In the meantime, it is still designed to be used as a standard in the DeFi space for decision-making regarding portfolio risk and maintenance margin calculation. 
 
 \section {Architecture}
 
-Blink Margin Engine analyses the portfolio of whitelisted (supported) assets, tokens and DEXs in real time. 
+Blink Margin Engine analyses the portfolio of whitelisted (supported) assets, tokens, and DEXs in real time. 
 The methodology is designed to be configured for any universe/Liquidation Routing/Asset Price Information. However, we will use a whitelisted universe from Blink Protocol. The list of supported assets, pools, and DEXs for Blink Protocol can be found in Appendix 1.
 
 The system is designed to give its user an answer to the following questions:
@@ -106,20 +108,20 @@ where
 \end{itemize}
 
 
-To give even more margin of safety, Blink Margin Engine inflates Market Impact Factor сalculations by $MarketImpactPct$ = 15\% to consider unexpected market impact during liquidations. 
+To give even more margin of safety, Blink Margin Engine inflates Market Impact Factor calculations by $MarketImpactPct$ = 15\% to consider unexpected market impact during liquidations. 
 
 As we have previously said, $f_{t}^{j} = F(\widetilde{E}, S, L_{t})$ where $\widetilde{E}$ defines DEX and how execution is handled on a particular DEX (AMM, Order-Book, RFQ), $S$ is size of a position, $L_{t}$ is liquidity on a given DEX at time $t$. Introducing the Market Impact Factor (MIF) gives us the flexibility in estimating the cost of liquidation where Liquidation Routing may consist of both AMM and Order-Book-based exchanges.
 
 
 \subsection{Estimating Market Impact Factor for Order-Book-based Exchanges}
 
-There are various well-known models of quantifying market impact in order-book markets such as TODO refer! Almgren (2005), Kissel (2004), Kyle. However, none of them are used in Blink Margin Engine. The reason for that is a fact that in market impact estimates, the Engine needs to answer, "By how much liquidating a large order size with a single market order will shift the price from the equilibrium?". This decision is mostly driven by a fact that the liquidation process on Blink Protocol is done through one order for each DEX in Liquidation Route. Once the liquidation process in the protocol becomes more advanced (splitting orders into smaller parts, VWAP and other advanced execution algorithms), - market impact estimation will be changed accordingly.  
+There are various well-known models of quantifying market impact in order-book markets such as TODO refer! Almgren (2005), Kissel (2004), Kyle. However, none of them are used in Blink Margin Engine. The reason for that is a fact that in market impact estimates, the Engine needs to answer, "By how much liquidating a large order size with a single market order will shift the price from the equilibrium?". This decision is mostly driven by the fact that the liquidation process on Blink Protocol is done through one order for each DEX in Liquidation Route. Once the liquidation process in the protocol becomes more advanced (splitting orders into smaller parts, VWAP, and other advanced execution algorithms), - market impact estimation will be changed accordingly.  
 
 Blink Margin Engine uses a "walking over" limit order book approach to estimate Market Impact Factor. We use 5 levels of the limit order book to estimate the average execution price: $$ \text{Average Execution Price}_{t} = \frac{\sum\limits_{i=1}^{5} (P_i \times Q_i)}{\sum\limits_{i=1}^{5} Q_i} $$
 
 In this formula, $P_i$ represents the price at which the market order was executed at level $i$ of the limit order book, and $Q_i$ represents the number of shares executed at that level. The summation is taken over all $n$ levels of the limit order book that were walked over by the market order. The numerator calculates the total value of shares executed at each price level, and the denominator calculates the total quantity of shares executed. The resulting value gives the average price per share at which the market order was executed.
 
-$Q_i$ depends on liquidity at a particular level and liquidity on previous levels of the limit order book. Suppose we have the following limit order book for ETH/DAI pair:
+$Q_i$ depends on liquidity at a particular level and liquidity on previous levels of the limit order book. Suppose we have the following limit order book for ETH/DAI pair shown in Table 1.
 
 \begin{table}[h]
 \centering
@@ -136,20 +138,18 @@ $Q_i$ depends on liquidity at a particular level and liquidity on previous level
 \end{tabular}
 \end{table}
 
-Now let's consider a market order to buy 200 ETH. The market order "walks over" the limit order book, executing at each level until filled.
+Now let's consider a market order to sell 150 ETH. The market order "walks over" the limit order book, executing at each level until filled.
 The first 100 ETH of the market order will fill the first level of the buy side of the order book at a price of $1000.00$, which exhausts this level of the order book.
 The remaining 100 ETH of the market order will then fill the next level of the buy side of the order book at a price of $995$, which exhausts this level of the order book.
-The market order is now filled, having bought 200 shares at an average executing price of:
-$$\frac{(100 \times 1000) + (100 \times 995)}{200} = 997.5$$
+The market order is now filled, having sold 150 ETH at an average executing price of:
+$$\frac{(100 \times 1000) + (50 \times 995)}{150} = 998.3$$
 
 
-So the average executing price of the market order that walked over 5 levels of the limit order book was $997.5$.
 
-TODO: correct the example as it should use SELL ORDERS.
-
+So the average executing price of the market order that walked over levels of the limit order book was $998.3$.
 
 Finally, the Market Impact Factor is the absolute percent difference between Average Execution Price and Mid-Price, $V_{t} = (bid_{t} + ask_{t})/2$: $$f_{t} = |\frac{V_{t}}{\text{Average Execution Price}_{t}}}-1|$$
-In our example, the Market Impact Factor equals $\frac{(1000+1005)/2}{975} = TODO$
+In our example, the Market Impact Factor equals $|\frac{(1000+1005)/2}{998.3}-1| = 0.0042$
 
 
 
@@ -203,6 +203,9 @@ Unclaimed rewards (if rewards tokens are whitelisted by Blink) are calculated us
 For example, if a user has Uniswap V3 position with \textbf{5 ETH and 10 000 USDT} and \textbf{0.7 ETH and 100 USDT in unclaimed rewards} to be claimed with the borrowed asset is USDT, and ETH/USDT Mark Price is 1000 then its position value is:
 $$(5 * 1000 + 10000) + (0.7*1000+100)*0.5= 15400$$
 
+\subsection{Lending Protocols Calculations}
+For positions where a trader deposits collateral into a lending protocol (AAVE, Compound), a position value is calculated using Token Price Calculations by mapping the number of protocol tokens (aWETH, aUSDT, cUSDC, etc.) to collateral value. 
+
 
 \subsection{Aggregating Portfolio by Assets}
 As previously discussed, position value significantly influences the Market Impact Factor in Mark Price calculations, so we must aggregate portfolio positions by tokens. 
@@ -234,7 +237,7 @@ This part of portfolio risk factor calculation applies only if the protocol/leve
 
 \begin{itemize}
 	\item Asset swap (when we need to swap assets back to borrowed asset).
-	\item Extract liquidity from a pool.
+	\item Extract liquidity from a pool/close debt on a lending protocol.
 	\item Bridging.
 	\item Return funds to LP.
 \end{itemize}
@@ -259,28 +262,90 @@ Finally, the process of Portfolio Value Calculation can be described as:
 \end{enumerate}
 
 \section{Portfolio Stress-Test Scenario Analysis}
-Before calculating the \textbf{Risk Factor} used to determine if a user should be liquidated, we need to calculate \textbf{Stress Tested Portfolio Value}. Let’s use the example from above to show how calculations work in this case.
+Before calculating the \textbf{Risk Factor} used to determine if a user should be liquidated, we need to calculate \textbf{Stress Tested Portfolio Value}. Let’s use the example from above to show how calculations work in this case. A user has a portfolio with borrowed asset USDC:
 
-For all assets held in the user's portfolio, we want to understand \textbf{“What happens to a position if its Mark Price drops by X$\%$ relative to the Leverage Asset?”}. All calculations for a trader's portfolio are under relative to a borrowed asset  
+\begin{itemize}
+	\item 10 wETH, 5 wBTC on Ethereum.
+	\item 7 wETH, 10 000 USDT on BSC.
+	\item Uniswap V3 position (10 ETH x 6000 DAI) + fees (3 ETH, 200 DAI) on Ethereum.
+	\item Curve LP position in (5000 USDT/5000 USDC) and fees to be claimed (100 CRV, 200 USDT, 5000 USDC).
+\end{itemize}
 
-We stress-test available assets based on either exchange rate risk or de-pegging (for stablecoins, ETH/stETH) risk. Based on a token risk and borrowed asset, we apply a different rate of change in the scenario matrix. Scenario matrix, $\boldsymbol{\Omega}$, is a symmetric matrix where each element represents a $\%$ change drop of the price of asset $i$ relative to borrowed asset $j$. Scenario Matrix is a configurable parameter of Blink Margin Engine, in our example, we will use the matrix from Blink Protocol:
+Mark Prices are:
+
+\begin{itemize}
+	\item wETH/USDC: 1000
+	\item wBTC/USDC: 10000
+	\item DAI/USDC: 0.99
+	\item USDT/USDC: 0.99
+	\item CRV/USDC: 1.08
+\end{itemize}
+
+For all assets/LP positions held in the user's portfolio, we want to understand \textbf{“What happens to a position if its Mark Price drops by X$\%$ relative to the Leverage Asset?”}. 
+
+\subsection{Prepare Scenario Analysis Matrix}
+We stress-test available assets based on either exchange rate risk or de-pegging (for stablecoins, ETH/stETH) risk. Based on a token risk and borrowed asset, we apply a different rate of change in the scenario matrix. \textbf{Scenario Matrix}, $\boldsymbol{\Omega}$, is the matrix where each element represents a $\%$ change drop of the price of asset $i$ relative to borrowed asset $j$. Scenario Matrix is a configurable parameter of Blink Margin Engine; in our example, we will use the matrix from Blink Protocol:
 
 $$\resizebox{\textwidth}{!}{\begin{tabular}{|l|c|c|c|c|c|c|c|c|c|c|c|c|c|}
   \hline
-   & wETH(ETH) & wstETH & wBTC & DAI & USDT & USDC & FRAX & CRV & FXS & LIDO & MATIC & Col 12 & Col 13 \\
+   & wETH(ETH) & wstETH & wBTC & DAI & USDT & USDC & FRAX & CRV & FXS & LIDO & MATIC \\
   \hline
-  wETH(ETH) & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 & 12 & 13 \\
-  wstETH & 14 & 15 & 16 & 17 & 18 & 19 & 20 & 21 & 22 & 23 & 24 & 25 & 26 \\
-  wBTC & 27 & 28 & 29 & 30 & 31 & 32 & 33 & 34 & 35 & 36 & 37 & 38 & 39 \\
-  DAI & 40 & 41 & 42 & 43 & 44 & 45 & 46 & 47 & 48 & 49 & 50 & 51 & 52 \\
-  USDT & 53 & 54 & 55 & 56 & 57 & 58 & 59 & 60 & 61 & 62 & 63 & 64 & 65 \\
- USDC & 66 & 67 & 68 & 69 & 70 & 71 & 72 & 73 & 74 & 75 & 76 & 77 & 78 \\
-  Row 7 & 79 & 80 & 81 & 82 & 83 & 84 & 85 & 86 & 87 & 88 & 89 & 90 & 91 \\
+  wETH(ETH) & - & -10$\%$ & -10$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$  \\
+  wstETH &  & - & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$\\
+  wBTC &  &  & - & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ \\
+  DAI &  &  &  & - & -10$\%$ & -10$\%$ & -10$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ \\
+  USDT &  &  &  &  & - & -10$\%$ & -10$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$\\
+ USDC &  &  &  &  & -10$\%$ & - & -10$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$\\
   \hline
 \end{tabular}}$$
 
+\subsection{Get stress-tested values for portfolio tokens}
+Based on borrowed assets and Mark Price for each token from the user’s portfolio, we get the token value using Mark Price adjusted for the value from the Scenario Matrix. The portfolio token’s values in USDC are:
+\begin{itemize}
+	\item 10 wETH [10 * 1000 * (1-0.3) = 7000], 5wBTC [5*10000* (1-0.3) = 35000] on Ethereum.
+	\item 7 wETH [7 * 1000 * (1-0.3) = 4900], 10 000 USDT [10000 * 0.99 * (1-0.1) = 8910] on BSC.
+\end{itemize}
 
 
+\subsection{Get stress-tested values for LP positions}
+For LP positions we need to consider not only delta risk (change of an asset price) but also gamma risk (Impermanent Loss). Taking the Impermanent Loss into consideration is extremely important taking into account non-linear nature of Liquidity Pools, especially those exposed to concentrated liquidity (Uniswap V3). When stress-testing LP positions the algorithm in the following: 
+\begin{enumerate}
+	\item Calculate the updated token price ratio considering the updated exchange rate relative to a borrowed asset. 
+	\item Get updated LP position quantities under the new token X/token Y price ratio.
+	\item Get updated price of LP position denominated in a borrowed asset.
+\end{enumerate}
+
+\subsubsection{Estimating position quantities for Uniswap V2}
+Using the constant product formula  $x*y=k$ where $x$ is the number of tokens X in the pool and $y$ is the number of token Y, we can get the estimate of expected token quantities inside of LP as a function of $k$ and the exchange rate $p_{t}$ between $x$ and $y$:
+$$x_{t} = \sqrt{k/p_{t}}$$ $$y_{t}=\sqrt{k*p_{t}}$$ 
+Secondly, for each LP position, we keep the percentage stake, $s_{t}$, in a pool for a given position which is reflected in "liquidity tokens" provided to a user. If others subsequently add/withdraw coins, new liquidity tokens are minted/burned such that everyone’s relative percentage share of the liquidity pool remains the same. TODO reference https://docs.uniswap.org/contracts/v2/concepts/advanced-topics/understanding-returns
+
+Finally, a stress-tested number of tokens for a user $(x^{*}, y^{*})$ is: $$x^{*} = s_t*\sqrt{k/p^{*}$$ $$y^{*} = s_t{}*\sqrt{k*p^{*}$$
+Where $p^{*}$ is the price ratio of stress-tested token X to token Y prices: $$p^{*} = \frac{\Omega(\text{borrowed asset, token X)}}{\Omega\text{(borrowed asset, token Y)}}$$
+
+
+\subsubsection{Estimating values for Uniswap V3}
+For concentrated liquidity, price ranges may significantly impact updated token quantities under a stress-test scenario. As a result, Uniswap V3 LP positions are exposed to a bigger gamma risk compared to V2. TODO: add math.
+
+
+
+\subsection{Get stress tested fees values}
+ For token values, we use the same approach as we did with tokens + haircut adjustment. 
+ \begin{itemize}
+ 	\item Uniswap V3 fees: 3 ETH, 200 DAI = 3 * 700 * 0.5 + 200 * 0.99 * 0.5 = 1149 USDC.
+ 	\item Curve pool fees: 100 CRV, 200 USDT, 5000 USDC = 100 * 0.756 * 0.5 + 200 * 0.99 * 0.5 + 5000 * 0.5 = 2636.8
+ \end{itemize}
+ 
+ \subsection{Find the total positions sum and adjust for gas/bridging fees}
+ 
+ Once we get adjusted for stress test position values in borrowed asset, we find the total sum and adjust the value for gas/bridging fees.
+ 
+ \section{Risk Factor Calculation}
+ Finally, we can calculate the \textbf{Risk Factor} used to determine if a trader’s position should be liquidated. 
+ 
+ $$RiskFactor_{t}=\frac{StressPortfolioValue_{t}-LiquidationPremium -LiquidationFee-Interest(t)}{BorrowedAssetAmount}$$
+ 
+ \textbf{Liquidation Premium} is an extra margin of safety Blink Protocol takes to liquidate a user for unpredicted events which may occur, while \textbf{Liquidation Fee} is a fee that is deposited to populate Blink Insurance Fund. In Blink Protocol, $LiquidationPremimum$ and $LiquidationFee$ are set to $10\%$. $Interest(t)$ refers to cumulative accrued interest for using leverage. A user is liquidated if their Risk Factor \textbf{drops below 1}. In our example, assuming th
 
 
 \section {References}
