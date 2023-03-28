@@ -23,6 +23,8 @@
 
 \usepackage{titlesec}
 
+\linespread{1.2}
+
 % Make section headings bold and numbered with Arabic numerals
 \renewcommand\thesection{\arabic{section}}
 \titleformat{\section}
@@ -98,7 +100,7 @@ In Blink, we use SPAN/SIMM scenario analysis of the underlying and haircuts appr
 \section {Architecture}
 
 Blink Margin Engine analyses the portfolio of whitelisted (supported) assets, tokens, and DEXs in real-time. 
-The methodology is designed to be configured for any universe/Liquidation Routing/Asset Price Information. However, the paper will use a whitelisted universe from Blink Protocol. The list of supported assets, pools, and DEXs for Blink Protocol can be found in Appendix A. TODO: Add APPENDIX.
+The methodology is designed to be configured for any universe/Liquidation Routing/Asset Price Information. However, the paper will use a whitelisted universe from Blink Protocol. The list of supported assets, pools, and DEXs for Blink Protocol can be found in Appendix A.
 
 The system is designed to give its user an answer to the following questions:
   \begin{enumerate}
@@ -114,7 +116,7 @@ The system is designed to give its user an answer to the following questions:
 \subsection{Reference Price and Liquidation Routing}
 The fundamental purpose of any margin engine is to calculate the initial and maintenance margin at any given time. If the trader's portfolio can not satisfy maintenance margin requirements -  they get a margin call, and the portfolio is liquidated. As the liquidation process is quite specific in the DeFi space, especially in a multi-chain environment, market impact, gas, and bridging costs should also be included in margin calculations to detect liquidation levels.
 
-First, we need to define \textbf {Reference Price} - the price of an asset X relative to the \textbf{Leverage Asset}. Blink Margin Engine uses ChainLink Oracles for that. For example, if a trader took USDC leverage on Ethereum to open a leveraged position in ETH, then ETH/USDC (Ethereum) Chainlink Oracle is used to determine Reference Price at any given time. Secondly, we introduce \textbf {Liquidation Routing} - the weight of each DEX in the liquidation process if a margin call happens. The Liquidation Routing table for Blink Protocol can be found in Appendix B TODO ADD APPENDIX 2. Taking the example above, in Blink Protocol, for an open ETH position, if USDC is used as leverage, 70\% of ETH will be converted back into USDC on Uniswap, and 30\% will be swapped using 1INCH. We must swap each token from the user's portfolio during liquidation into a leverage asset to bring it back into the liquidity pool where it was taken*. Reference Price and Liquidation Routing are used in \textbf{Mark Price} calculations.
+First, we need to define \textbf {Reference Price} - the price of an asset X relative to the \textbf{Leverage Asset}. Blink Margin Engine uses ChainLink Oracles for that. For example, if a trader took USDC leverage on Ethereum to open a leveraged position in ETH, then ETH/USDC (Ethereum) Chainlink Oracle is used to determine Reference Price at any given time. Secondly, we introduce \textbf {Liquidation Routing} - the weight of each DEX in the liquidation process if a margin call happens. Taking the example above, in Blink Protocol, for an open ETH position, if USDC is used as leverage, 70\% of ETH will be converted back into USDC on Uniswap, and 30\% will be swapped using 1INCH. We must swap each token from the user's portfolio during liquidation into a leverage asset to bring it back into the liquidity pool where it was taken*. Reference Price and Liquidation Routing are used in \textbf{Mark Price} calculations.
 
 \fancyfoot[C]{*The priority of liquidation is a position notion value (1st order of priority) and liquidity (2nd order or priority).}
 \thispagestyle{fancy}
@@ -333,7 +335,7 @@ Mark Prices are:
 For all assets/LP positions held in the user's portfolio, we want to understand \textbf{“What happens to a position if its Mark Price drops by X$\%$ relative to the Leverage Asset?”}. 
 
 \subsection{Prepare Scenario Analysis Matrix}
-We stress-test available assets based on either exchange rate risk or de-pegging (for stablecoins, ETH/stETH) risk. Based on a token risk and borrowed asset, we apply a different rate of change in the scenario matrix. \textbf{Scenario Matrix}, $\boldsymbol{\Omega}$, is the matrix where each element represents a $\%$ change drop of the price of asset $i$ relative to borrowed asset $j$. Scenario Matrix is a configurable parameter of Blink Margin Engine; in our example, we will use the matrix from Blink Protocol (Appendix C).
+We stress-test available assets based on either exchange rate risk or de-pegging (for stablecoins, ETH/stETH) risk. Based on a token risk and borrowed asset, we apply a different rate of change in the scenario matrix. \textbf{Scenario Matrix}, $\boldsymbol{\Omega}$, is the matrix where each element represents a $\%$ change drop of the price of asset $i$ relative to borrowed asset $j$. Scenario Matrix is a configurable parameter of Blink Margin Engine; in our example, we will use the matrix from Blink Protocol (Appendix B).
 
 
 
@@ -414,15 +416,17 @@ RiskFactor_{t} &= \frac{StressPortfolioValue_{t}-LiquidationFee}{BorrowedAssetAm
   \end{aligned}}{BorrowedAssetAmount} \nonumber \
 \end{align}
  
- \textbf{Liquidation Premium} is an extra margin of safety Blink Protocol takes to liquidate a user for unpredicted events which may occur, while \textbf{Liquidation Fee} is a fee that is deposited to populate Blink Insurance Fund. In Blink Protocol, $LiquidationPremimum$ and $LiquidationFee$ are set to $10\%$. $Interest(t)$ refers to cumulative accrued interest for using leverage. In our example, if gas/briding fees are $2000$, the USDC stress-tested portfolio value is: 
+ \textbf{Liquidation Premium} is an extra margin of safety Blink Protocol takes to liquidate a user for unpredicted events which may occur, while \textbf{Liquidation Fee} is a fee that is deposited to populate Blink Insurance Fund. In Blink Protocol, $LiquidationPremium$ and $LiquidationFee$ are set to $10\%$. $Interest(t)$ refers to cumulative accrued interest for using leverage. In our example, if gas/bridging fees are $2000$, the USDC stress-tested portfolio value is: 
  $$35000 + 8910 + 11612 + 9500 + 1139 + 2628 - 2000 = 66789$$
 Suppose, $Interest(t)$ is 100, $BorrowedAssetAmount$ is 20000 USDC then:
 $$RiskFactor_{t}=\frac{66789*(1-0.1-0.1)-100}{20000}=2.6656>1$$
 
-A user is liquidated if their Risk Factor \textbf{drops below 1}. 
+A user is liquidated if their Risk Factor \textbf{drops below 1}. As a result, the maintenance margin is the amount of margin such that the Risk Factor equals 1.
 
 \section{Conclusions}
+The paper describes the process of calculating maintenance margin requirements using scenario analysis, Reference Price, Liquidation Routing, Mark Price, and Market Impact Factor to manage risk in a cross-chain DeFi ecosystem. The article provides a detailed explanation of these concepts and metrics, including how to estimate the Market Impact Factor for different types of DEXs and perform scenario analysis of constant-product and concentrated liquidity AMMs. 
 
+Further research will include building a more sophisticated Liquidation Routing system, which should be more robust and decrease market impact and slippage.
 
 
 \bibliographystyle{plain}
@@ -432,7 +436,31 @@ A user is liquidated if their Risk Factor \textbf{drops below 1}.
 
 \begin{appendices}
 \section{Blink Protocol Whitelisted Assets/Pools/DEXs}
-\section{Blink Protocol Liquidation Routing}
+Whitelisted tokens:
+\begin{itemize}
+	\item wETH
+	\item wstETH, stETH
+	\item wBTC
+	\item DAI
+	\item USDT
+	\item USDC
+	\item FRAX
+	\item CRV, cvxCRV
+	\item FXS
+	\item LIDO
+	\item MATIC
+\end{itemize}
+Leverage tokens: 
+\begin{itemize}
+	\item wETH
+	\item wstETH
+	\item wBTC
+	\item DAI
+	\item USDC
+	\item FRAX
+\end{itemize}
+
+
 \section{Market Impact Price Matrix}
 $$\resizebox{\textwidth}{!}{\begin{tabular}{|l|c|c|c|c|c|c|c|c|c|c|c|c|c|}
   \hline
