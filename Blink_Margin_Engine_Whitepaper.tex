@@ -128,16 +128,10 @@ The first step in calculating a portfolio maintenance margin and a liquidation r
 
 \subsection{Token Price Calculations}
 
-For whitelisted tokens, we use Mark Price to estimate the price of a token relative to a borrowed asset. However, several tokens have a \textbf{valuation haircut}:
-
-\begin{itemize}
-	\item stETH, wstETH: -5$\%$
-	\item CRV, cvxCRV: -15$\%$
-\end{itemize}
-
+For whitelisted tokens, we use Mark Price to estimate the price of a token relative to a borrowed asset. 
 
 For example, if the Mark Price of CRV/USDT is 1.088 and a user has 100 CRV in their portfolio in Blink Finance, the value of the position will be:
-$$1.088 * 100 * (1-0.15)= 92.48$$
+$$1.088 * 100 * (1-0.15)= 108.8$$
 
 
 \subsection{Liquidity Pools Calculations}
