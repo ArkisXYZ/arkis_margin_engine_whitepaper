@@ -51,17 +51,17 @@
   
 \begin{document}
  
-\title{Blink Margin Engine}
-\author{Proskurin Oleksandr}
+\title{Arkis Margin Engine}
+\author{Proskurin Oleksandr, Serhii Tyshchenko}
 
 \maketitle
     \begin{abstract}
 The paper describes a novel approach to calculating margin requirements for under-collateralized cross-chain leverage, considering DeFi-specific primitives such as liquidity pools, bridging, and concentrated liquidity. 
 Key findings: 
 \begin{enumerate}
-  \item Blink Margin Engine is a centralized system designed to calculate portfolio risk using complex scenario analysis of the underlying asset prices.
+  \item Arkis Margin Engine is a centralized system designed to calculate portfolio risk using complex scenario analysis of the underlying asset prices.
   \item The Engine is designed to provide portfolio risk analytics in a multi-chain environment. 
-  \item Blink Margin Engine is designed to become a universal middleware and standard in DeFi margin calculation for trading operations.
+  \item Arkis Margin Engine is designed to become a universal middleware and standard in DeFi margin calculation for trading operations.
   \end{enumerate}
 \end{abstract}
 
@@ -95,12 +95,12 @@ SPAN model relies on scenario analysis and asset price simulations, taking into 
 
 At the same time, the SIMM model developed by International Swaps and Derivatives Association(ISDA) is a common methodology for calculating the initial margin for uncleared OTC derivatives. It also relies on asset price simulations to calculate potential portfolio risks and imposes several haircuts on the market values of riskier securities. \cite{simm-whitepaper}
 
-In Blink, we use SPAN/SIMM scenario analysis of the underlying and haircuts approach as a starting point for Margin Engine design. As Blink Margin Engine relies upon heavy computations and scenario analysis, it is impossible to put these calculations on a blockchain, which is why it is a centralized system. In the meantime, it is still designed to be used as a standard in the DeFi space for decision-making regarding portfolio risk and maintenance margin calculation. 
+In Arkis, we use SPAN/SIMM scenario analysis of the underlying and haircuts approach as a starting point for Margin Engine design. As Arkis Margin Engine relies upon heavy computations and scenario analysis, it is impossible to put these calculations on a blockchain, which is why it is a centralized system. In the meantime, it is still designed to be used as a standard in the DeFi space for decision-making regarding portfolio risk and maintenance margin calculation. 
 
 \section {Architecture}
 
-Blink Margin Engine analyses the portfolio of whitelisted (supported) assets, tokens, and DEXs in real-time. 
-The methodology is designed to be configured for any universe/Liquidation Routing/Asset Price Information. However, the paper will use a whitelisted universe from Blink Protocol. The list of supported assets, pools, and DEXs for Blink Protocol can be found in Appendix A.
+Arkis Margin Engine analyses the portfolio of whitelisted (supported) assets, tokens, and DEXs in real-time. 
+The methodology is designed to be configured for any universe/Liquidation Routing/Asset Price Information. However, the paper will use a whitelisted universe from Arkis Protocol. The list of supported assets, pools, and DEXs for Arkis Protocol can be found in Appendix A.
 
 The system is designed to give its user an answer to the following questions:
   \begin{enumerate}
@@ -116,7 +116,7 @@ The system is designed to give its user an answer to the following questions:
 \subsection{Reference Price and Liquidation Routing}
 The fundamental purpose of any margin engine is to calculate the initial and maintenance margin at any given time. If the trader's portfolio can not satisfy maintenance margin requirements -  they get a margin call, and the portfolio is liquidated. As the liquidation process is quite specific in the DeFi space, especially in a multi-chain environment, market impact, gas, and bridging costs should also be included in margin calculations to detect liquidation levels.
 
-First, we need to define \textbf {Reference Price} - the price of an asset X relative to the \textbf{Leverage Asset}. Blink Margin Engine uses ChainLink Oracles for that. For example, if a trader took USDC leverage on Ethereum to open a leveraged position in ETH, then ETH/USDC (Ethereum) Chainlink Oracle is used to determine Reference Price at any given time. Secondly, we introduce \textbf {Liquidation Routing} - the weight of each DEX in the liquidation process if a margin call happens. Taking the example above, in Blink Protocol, for an open ETH position, if USDC is used as leverage, 70\% of ETH will be converted back into USDC on Uniswap, and 30\% will be swapped using 1INCH. We must swap each token from the user's portfolio during liquidation into a leverage asset to bring it back into the liquidity pool where it was taken*. Reference Price and Liquidation Routing are used in \textbf{Mark Price} calculations. Mark Price is a proxy to the fair value of an asset taking into account current market liquidity, execution constraints, and other factors. For example, one may adjust Reference Price for implied market impact if the trader's position may be liquidated in the future. In case of Blink Protocol and Margin Engine, \textbf{Mark Price equals Reference Price}.
+First, we need to define \textbf {Reference Price} - the price of an asset X relative to the \textbf{Leverage Asset}. Arkis Margin Engine uses ChainLink Oracles for that. For example, if a trader took USDC leverage on Ethereum to open a leveraged position in ETH, then ETH/USDC (Ethereum) Chainlink Oracle is used to determine Reference Price at any given time. Secondly, we introduce \textbf {Liquidation Routing} - the weight of each DEX in the liquidation process if a margin call happens. Taking the example above, in Arkis Protocol, for an open ETH position, if USDC is used as leverage, 70\% of ETH will be converted back into USDC on Uniswap, and 30\% will be swapped using 1INCH. We must swap each token from the user's portfolio during liquidation into a leverage asset to bring it back into the liquidity pool where it was taken*. Reference Price and Liquidation Routing are used in \textbf{Mark Price} calculations. Mark Price is a proxy to the fair value of an asset taking into account current market liquidity, execution constraints, and other factors. For example, one may adjust Reference Price for implied market impact if the trader's position may be liquidated in the future. In case of Arkis Protocol and Margin Engine, \textbf{Mark Price equals Reference Price}.
 
 \fancyfoot[C]{*The priority of liquidation is a position notion value (1st order of priority) and liquidity (2nd order or priority).}
 \thispagestyle{fancy}
@@ -130,12 +130,12 @@ The first step in calculating a portfolio maintenance margin and a liquidation r
 
 For whitelisted tokens, we use Mark Price to estimate the price of a token relative to a borrowed asset. 
 
-For example, if the Mark Price of CRV/USDT is 1.088 and a user has 100 CRV in their portfolio in Blink Finance, the value of the position will be:
+For example, if the Mark Price of CRV/USDT is 1.088 and a user has 100 CRV in their portfolio in Arkis Finance, the value of the position will be:
 $$1.088 * 100 * (1-0.15)= 108.8$$
 
 
 \subsection{Liquidity Pools Calculations}
-Liquidity pools consist of staked assets and fees (rewards) to be claimed. If a user claims fees - their price is calculated by the Token Price Calculations method only if a fee token is whitelisted inside Blink Margin Engine. Non-whitelisted tokens are not included in portfolio value calculations.
+Liquidity pools consist of staked assets and fees (rewards) to be claimed. If a user claims fees - their price is calculated by the Token Price Calculations method only if a fee token is whitelisted inside Arkis Margin Engine. Non-whitelisted tokens are not included in portfolio value calculations.
 Staked assets are calculated using the Token Price Calculations methodology. 
 
 For example, if a user has Uniswap V3 position with \textbf{5 ETH and 10 000 USDT} and \textbf{0.7 ETH and 100 USDT in unclaimed rewards} to be claimed with the borrowed asset is USDT, and ETH/USDT Mark Price is 1000 then its position value is:
@@ -149,9 +149,9 @@ For borrowed assets, the position value is calculated as follows:
 \text{Position Value}_{t} &= \text{Collateral Deposited Value}_{t} \\
 &\quad - \text{Borrowed Asset Value}_{t} - \text{Accrued Interest}_{t}
 \end{aligned}
-For example, if a trader used Blink Protocol USDT leverage to open a short position in 1 ETH through AAVE, the algorithm is following:
+For example, if a trader used Arkis Protocol USDT leverage to open a short position in 1 ETH through AAVE, the algorithm is following:
 \begin{enumerate}
-	\item Use borrowed from Blink 1600 USDT as collateral to borrow 1 ETH from AAVE. (1 ETH = 1000 USDT).
+	\item Use borrowed from Arkis 1600 USDT as collateral to borrow 1 ETH from AAVE. (1 ETH = 1000 USDT).
 	\item Sell immediately 1 ETH for 1000 USDT. 
 \end{enumerate}
 
@@ -183,7 +183,7 @@ As a result of aggregation, we have:
 \end{itemize}
 
 \section{Adjusting Portfolio Value for Gas/Bridging Fees}
-This part of portfolio risk factor calculation applies only if the protocol/leverage entity intends to liquidate bad debt positions. In Blink Protocol, for example, the liquidation is done through Liquidation Routing without relying on external liquidators. The adjustment is needed as gas and bridging costs may significantly impact the overall liquidation cost. There are 4 types of actions that incur gas costs:
+This part of portfolio risk factor calculation applies only if the protocol/leverage entity intends to liquidate bad debt positions. In Arkis Protocol, for example, the liquidation is done through Liquidation Routing without relying on external liquidators. The adjustment is needed as gas and bridging costs may significantly impact the overall liquidation cost. There are 4 types of actions that incur gas costs:
 
 \begin{itemize}
 	\item Asset swap (when we need to swap assets back to borrowed asset).
@@ -233,7 +233,7 @@ Mark Prices are:
 For all assets/LP positions held in the user's portfolio, we want to understand \textbf{“What happens to a position if its Mark Price drops by X$\%$ relative to the Leverage Asset?”}. 
 
 \subsection{Prepare Scenario Analysis Matrix}
-We stress-test available assets based on either exchange rate risk or de-pegging (for stablecoins, ETH/stETH) risk. Based on a token risk and borrowed asset, we apply a different rate of change in the scenario matrix. \textbf{Scenario Matrix}, $\boldsymbol{\Omega}$, is the matrix where each element represents a $\%$ change drop of the price of asset $i$ relative to borrowed asset $j$. Scenario Matrix is a configurable parameter of Blink Margin Engine; in our example, we will use the matrix from Blink Protocol (Appendix B).
+We stress-test available assets based on either exchange rate risk or de-pegging (for stablecoins, ETH/stETH) risk. Based on a token risk and borrowed asset, we apply a different rate of change in the scenario matrix. \textbf{Scenario Matrix}, $\boldsymbol{\Omega}$, is the matrix where each element represents a $\%$ change drop of the price of asset $i$ relative to borrowed asset $j$. Scenario Matrix is a configurable parameter of Arkis Margin Engine; in our example, we will use the matrix from Arkis Protocol (Appendix B).
 
 
 
@@ -314,7 +314,7 @@ RiskFactor_{t} &= \frac{StressPortfolioValue_{t}-LiquidationFee}{BorrowedAssetAm
   \end{aligned}}{BorrowedAssetAmount} \nonumber \
 \end{align}
  
- \textbf{Liquidation Premium} is an extra margin of safety Blink Protocol takes to liquidate a user for unpredicted events which may occur, while \textbf{Liquidation Fee} is a fee that is deposited to populate Blink Insurance Fund. In Blink Protocol, $LiquidationPremium$ and $LiquidationFee$ are set to $10\%$. $Interest(t)$ refers to cumulative accrued interest for using leverage. In our example, if gas/bridging fees are $2000$, the USDC stress-tested portfolio value is: 
+ \textbf{Liquidation Premium} is an extra margin of safety Arkis Protocol takes to liquidate a user for unpredicted events which may occur, while \textbf{Liquidation Fee} is a fee that is deposited to populate Arkis Insurance Fund. In Arkis Protocol, $LiquidationPremium$ and $LiquidationFee$ are set to $10\%$. $Interest(t)$ refers to cumulative accrued interest for using leverage. In our example, if gas/bridging fees are $2000$, the USDC stress-tested portfolio value is: 
  $$35000 + 8910 + 11612 + 9500 + 1139 + 2628 - 2000 = 66789$$
 Suppose, $Interest(t)$ is 100, $BorrowedAssetAmount$ is 20000 USDC then:
 $$RiskFactor_{t}=\frac{66789*(1-0.1-0.1)-100}{20000}=2.6656>1$$
@@ -332,9 +332,9 @@ The initial margin needed to open the position corresponds to a value under whic
 
 For token-agnostic, the initial margin (IM) value in the borrowed token is: $$IM = \text{Borrowed Amount} *(0.3+0.1+0.1)$$ where 0.3 corresponds to the minimum value of scenario stress test in Scenario Analysis Matrix, $\boldsymbol{\Omega}$, 0.1 and 0.1 correspond to $Liquidation Fee$  and $Liquidation Premium$ values.
 
-For example, if a trader aims to borrow 2 000 000 USDC from Blink Protocol, the token-agnostic initial margin amount is $$\text{2 000 000} * 0.5 = \text{1 000 000 USDC}$$.
+For example, if a trader aims to borrow 2 000 000 USDC from Arkis Protocol, the token-agnostic initial margin amount is $$\text{2 000 000} * 0.5 = \text{1 000 000 USDC}$$.
 
-However, if an asset manager aims to provide the collateral in stable coins (USDT, FRAX, or DAI), the stress-tested value is $10\%$ instead of $30\%$, which leads to a lower amount of initial margin to be deposited. That is why Blink Margin Engine provides the module to calculate the \textbf{Initial Collateral Portfolio}, which is the portfolio of assets used to open a leveraged position such that the initial margin requirements are satisfied (Risk Factor $>$ 1).
+However, if an asset manager aims to provide the collateral in stable coins (USDT, FRAX, or DAI), the stress-tested value is $10\%$ instead of $30\%$, which leads to a lower amount of initial margin to be deposited. That is why Arkis Margin Engine provides the module to calculate the \textbf{Initial Collateral Portfolio}, which is the portfolio of assets used to open a leveraged position such that the initial margin requirements are satisfied (Risk Factor $>$ 1).
 
 \subsection{Initial Collateral Portfolio Calculation}
 
@@ -373,7 +373,7 @@ Further research will include building a more sophisticated Liquidation Routing 
 \newpage
 
 \begin{appendices}
-\section{Blink Protocol Whitelisted Assets/Pools/DEXs}
+\section{Arkis Protocol Whitelisted Assets/Pools/DEXs}
 Whitelisted tokens:
 \begin{itemize}
 	\item wETH
