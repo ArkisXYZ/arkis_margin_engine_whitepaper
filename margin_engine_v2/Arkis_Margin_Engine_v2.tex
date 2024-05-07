@@ -1,0 +1,236 @@
+\documentclass[conference]{IEEEtran}
+\usepackage[pass]{geometry}
+\usepackage{amsmath,amssymb}
+
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\restylefloat{table}
+\usepackage{subcaption}
+\usepackage{abstract}
+\usepackage{xcolor}
+\usepackage{appendix}
+\usepackage{pdflscape}
+\usepackage{afterpage}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{rotating}
+\usepackage{fancyhdr}
+
+\usepackage{titlesec}
+
+\linespread{1.2}
+
+% Make section headings bold and numbered with Arabic numerals
+\renewcommand\thesection{\arabic{section}}
+\titleformat{\section}
+  {\bfseries\large}
+  {\thesection.}
+  {1em}
+  {}
+
+% Make subsection headings bold and numbered with Arabic numerals
+\renewcommand\thesubsection{\thesection.\arabic{subsection}}
+\titleformat{\subsection}
+  {\bfseries}
+  {\thesubsection.}
+  {1em}
+  {}
+
+% Make subsubsection headings bold and numbered with Arabic numerals
+\renewcommand\thesubsubsection{\thesubsection.\arabic{subsubsection}}
+\titleformat{\subsubsection}
+  {\bfseries}
+  {\thesubsubsection.}
+  {1em}
+  {}
+  
+\begin{document}
+ 
+\title{Arkis v2: Bridging the Gap Between CEX and DEX Liquidity}
+\author{Proskurin Oleksandr}
+
+\maketitle
+    \begin{abstract}
+Arkis v2 introduces enhanced functionalities catering to Asset Managers seeking perpetual futures trading capabilities. This iteration builds upon the foundation laid by Arkis Margin Engine v1, with a primary emphasis on elucidating perpetual futures risk analysis and the seamless integration of CeFi and DeFi components within Arkis portfolios.
+Key findings: 
+\begin{enumerate}
+  \item The new protocol design fosters a permissionless environment, enabling institutional Lenders and Asset Managers to engage in transactions facilitated by Arkis.
+  \item A novel risk engine and liquidation framework facilitate the amalgamation of DeFi and CeFi elements within a unified portfolio, optimising capital efficiency through cross-margining.
+  \item Arkis Margin Engine v2 imposes penalties on all directional exposures, regardless of their positivity or negativity, while favouring delta-neutral positions with superior Risk Factor values. Consequently, delta-neutral Asset Managers stand to leverage Arkis's offerings more effectively.
+  \end{enumerate}
+\end{abstract}
+
+
+
+\section{Introduction}
+
+This white paper introduces the latest advancements in the Margin Engine, initially unveiled nearly a year ago. The primary objective of Margin Engine V1 was to address the issue of undercollateralised leverage in the decentralised finance (DeFi) space, enhancing capital efficiency for Asset Managers. It enabled them to collateralize their onchain positions, including tokens and yield-bearing assets from platforms like Curve and Uniswap and to obtain leveraged exposures. This arrangement allowed Asset Managers to secure loans at higher interest rates, compensating Lenders for the added risk associated with undercollateralised leverage.\cite{arkis-v1-whitepaper}
+
+Moreover, the adoption of a prime brokerage model with dynamically locked collateral in Margin Accounts has bolstered Lender confidence, security, and control over transactions. Despite this, our observations over the past year reveal that reliance solely on DeFi liquidity is insufficient. Asset Managers continue to depend on Centralised Exchanges (CEXs) for primary liquidity, even as decentralised derivative exchanges like Hyperliquid, Vertex, dYdX, GMX, and others have significantly increased their volume share.\cite{coingecko-volumes} Currently, CEXs still offer the highest liquidity and lowest execution costs, alongside the convenience of operational and risk management setups, including prime-brokerage integrations and advancements in mitigating centralised exchange counterparty risks post-FTX crash.
+
+Most DeFi Asset Managers use perpetual futures contracts to hedge their exposure and maintain delta neutrality. However, Margin Engine V1 was unable to accommodate position hedges, thus preventing Asset Managers from fully realising the potential of staying delta neutral. Success and adoption have been notable for projects that integrate the best elements of both centralised finance (CeFi) and DeFi, like in the project Ethena. Ethena's approach, based on the straightforward concept of a carry trade, has seen a significant increase in total value locked (TVL) over the past year. This strategy was further enhanced by incorporating a DeFi element through the use of Liquid Staking Ethereum (LST) tokens, adding another yield-generating mechanism to an already profitable short perpetual position.\cite{ethena-gitbook}
+
+Our observations also underscore that while the CeFi world offers deep liquidity and cost-effective, rapid execution, the DeFi world provides attractive yields. The entire DeFi ecosystem is built on the premise that users can deposit their tokens into protocols to generate yield. Innovations such as Liquid Restaking Tokens (LRT), the Pendle protocol, and narratives around Real World Assets (RWA) have demonstrated that the DeFi ecosystem is evolving into a marketplace where Asset Managers decide how to maximize yield on their tokens.\cite{eigenlayer-whitepaper}\cite{pendle-whitepaper}
+
+Therefore, it is imperative for decentralised prime-brokers to integrate a CEX component to fully unlock potential and enhance capital efficiency for their clients.
+
+This white paper is structured as follows: we begin by detailing the enhancements made to Margin Engine v1 over the past year. Next, we discuss how perpetual futures positions are considered in portfolio risk calculations in Margin Engine v2 and illustrate how achieving delta-neutrality can improve an Asset Manager’s Risk Factor and allow for greater leverage. Finally, we present several use cases of Margin Engine v2 and the Arkis Protocol, demonstrating their capacity for more efficient capital deployment compared to strategies that rely solely on either CeFi or DeFi components.
+ 	
+
+
+\section{Updates to Margin Engine v1.0 and Arkis Protocol}
+Certain features of the earlier version of the Margin Engine were phased out due to their unnecessary complexity. Notably, Arkis had partnered with 1Inch Protocol to facilitate liquidations through their network, leveraging the DEX aggregator to minimise market impact. As a result, the previously used Liquidation Matrix and market impact factor became redundant.
+
+The Arkis Risk team recognizes the crucial importance of liquidity, particularly during market sell-offs. However, incorporating a market impact factor into the Risk Factor calculation introduced unnecessary complexity, making the process less intuitive and harder to trace for both lenders and borrowers. In response, the Liquidity Risk Manager was developed and integrated as part of the Compliance Manager to more effectively address liquidity management.
+
+
+\subsection{Liquidity Risk Manager}
+\textbf{The Liquidity Risk Manager} is a specialised module designed to monitor the real-time liquidity of tokens. It can issue a liquidation signal if the total value locked (TVL) or liquidity of a pool or token drops below predetermined levels, which are specifically tailored for each transaction between an institutional lender and borrower. This includes details such as the amount of the borrowed asset, and the underlying and collateral assets involved. Additionally, the Liquidity Risk Manager utilises implied market impact estimates from 1inch to determine when the TVL or liquidity of a pool or token is critically low, necessitating a liquidation signal.
+
+Moreover, a key function of the Liquidity Risk Manager is the implementation of \textbf{Exposure Constraints}. These constraints are designed to limit an Asset Manager’s exposure to a specific token, protocol, or pool. Thus, before an Asset Manager can execute transactions through the Margin Account, approvals are required from both the Compliance Manager (to ensure the action or token is whitelisted) and the Liquidity Risk Manager (to verify that the token exposure meets the set Exposure Constraints). These constraints are applied individually to each liquidity pool, but the Arkis risk management team also considers the aggregate exposure across all systems when setting these constraints, ensuring comprehensive risk management.
+
+TODO: add Liquidity Risk Manager diagram.
+
+
+\subsection{Partial Withdrawal}
+
+Partial withdrawal is a critical feature that allows Asset Managers to request the withdrawal of certain assets from the Margin Account to an external, whitelisted address, ensuring seamless operations. Initially, this feature was implemented following a request from an Asset Manager who had opened an undercollateralised loan through Arkis. As the value of their position relative to the borrowed token increased, making the loan overcollateralised, the Asset Manager sought to withdraw part of the profit for use in other trading operations.
+
+The Partial Withdrawal feature enables Asset Managers to use yield-bearing positions on DeFi platforms as collateral, borrow tokens, and transfer them to a CEX account for trading. This flexibility facilitates CEX-DEX integration \textbf{without the need for additional direct CEX integrations}.
+
+Additionally, Asset Managers can borrow assets and place them into yield-bearing positions. If the value of these positions increases significantly, they may wish to withdraw the generated surplus to their wallet or CEX account. It's important to note that partial withdrawal is only permissible when the total value of the Margin Account substantially exceeds the amount of the borrowed asset. This condition can be met either by initiating an overcollateralised loan or by allowing an undercollateralised loan to appreciate in value until it becomes substantially overcollateralised.
+
+The operation of the Partial Withdrawal feature is governed by a \textbf{"Withdraw List Tokens"} — a specified list of tokens eligible for partial withdrawal. This list informs Asset Managers about which assets can be partially withdrawn.
+
+Furthermore, we introduce the \textbf{Withdrawal Haircut} parameter, which is applied to all tokens in the Margin Account when calculating the Risk Factor to determine if a partial withdrawal is feasible. This precautionary measure discounts the portfolio's value to mitigate risks associated with funds being withdrawn from Arkis’ controlled environment. It also helps prevent potential token price manipulation intended to artificially inflate the portfolio value.
+
+Another critical parameter is \textbf{N BLOCKS} which represents the number of blocks to wait before conducting the final checks on portfolio value and Risk Factor, followed by the transfer of tokens to an external address. This delay is designed to protect the system from flash-loan attacks and further safeguard against token price manipulation.
+
+The Partial Withdrawal process works as follows:
+\begin{enumerate}
+	\item \textbf{Token Selection}: An Asset Manager selects the token they wish to withdraw. If the token is not included in the Withdrawal List Tokens, the request is automatically rejected.
+	\item \textbf{Withdrawal Assessment}: Based on the selected token and the amount proposed for withdrawal, the Arkis Margin Engine calculates the target portfolio post-withdrawal. If the Stress Tested Value of the Target Portfolio, adjusted by multiplying it with \textbf{(1 - Withdrawal Haircut)}, is less than or equal to the borrowed amount, the Asset Manager cannot proceed with the withdrawal request.
+	\item \textbf{Address Submission}: If the assessment in step 2 is favourable, the Asset Manager may then submit the external address to which they intend to transfer the assets. The Arkis Margin Engine verifies whether this address is whitelisted. If the address is approved, the Partial Withdrawal Request is placed in Pending status.
+	\item \textbf{Final Approval and Transfer}: After the specified number of \textbf{N BLOCKS} elapses, the Margin Engine revisits the condition from step 2 for final verification. If this final check is successful, the Arkis Protocol proceeds to initiate the transfer of tokens from the Margin Account to the specified external address.
+
+\end{enumerate}
+
+
+
+The Partial Withdrawal feature is highly beneficial, particularly for implementing delta-neutral trading strategies. 
+
+For instance, consider an Asset Manager who uses a position of 1 million in USDT value from a Curve TriCrypto LP to secure a loan of 500,000 USDT. Given that this loan is over-collateralised, the value of the borrowed assets is less than the collateral value, the Asset Manager \textbf{can request to withdraw 500,000 USDT to an external CEX account}. Concurrently, they can hedge the entire 1 million exposure of the LP position using perpetual futures (with leverage), maintaining a delta-neutral position. 
+
+
+\subsection{Updates to Arkis Protocol}
+
+The Arkis Protocol's original architecture was not equipped to handle multiple liquidity pools sharing the same token. Our experience with various Arkis use cases has demonstrated that factors such as stress-tested matrices, borrow APYs, and whitelisted tokens and protocols can vary significantly across transactions involving institutional lenders and borrowers. In scenarios where Asset Managers engage with higher-risk pools, lenders correspondingly set higher APYs and stress-tested values to reflect the increased risk.
+
+In response to these dynamics, Arkis is updating its infrastructure to facilitate the participation of institutional lenders and borrowers in a diverse array of pools, operating under a semi-permissionless framework. This semi-permissionless model is so designated because it requires that all users undergo KYC processes, are properly onboarded, and are whitelisted before they can participate.
+
+To accommodate this expansion and to align with practices observed in the Morpho Blue approach where lenders and borrowers can independently establish and adjust the parameters of different market liquidity pools, Arkis Protocol is adopting a multi-tenancy architecture. This new structure will enhance the protocol’s flexibility, allowing it to support a broader range of investment strategies and risk preferences among its users.\cite{morpho-whitepaper}
+
+Each Lending Pool within Arkis can be described by the following parameters:
+\begin{itemize}
+	\item Unique Pool ID.
+	\item Maximum Loan-to-Value (LTV) Ratio: The ratio Borrowed Asset Amount to collateral value.
+	\item Borrowed Asset.
+	\item Whitelisted Tokens: Tokens allowed to be operated by an Asset Manager borrowing from a pool.
+	\item Withdraw List Tokens: Tokens eligible for Partial Withdrawal.
+	\item Collateral Tokens: Tokens that can be used as collateral to take a loan.
+	\item Supply/Borrow APY, Interest Rate Model.
+	\item Whitelisted Protocols/Pools/Operations.
+	\item Stress-Tested Matrix.
+	\item Risk Factor Values when a Margin Call occurs: The Arkis team contacts an Asset Manager and advises them to top-up their Margin Account within a specific pool to avoid Liquidation.
+	\item Risk Factor Value when liquidation is triggered: Usually, it is 1.0, but in some specific cases, this value can be higher.
+	\item Price Oracle.
+	\item Lenders’ whitelisted wallet addresses.
+	\item Asset Managers’ whitelisted wallet addresses.
+	\item Partial Withdrawal Whitelisted addresses.
+	\item Liquidation Threshold: Extra haircut applied to stress-tested portfolio value in Risk Factor calculations.
+	\item Liquidation Fee - Fee taken by Arkis Protocol if Liquidation occurs.
+	\item Tokens Exposure Constraints.
+	\item Withdrawal Haircut, N BLOCKS for Partial Withdrawal.
+\end{itemize}
+
+
+\subsection{Introducing Open- and Close-term Pools}
+In response to the varied preferences of lenders and borrowers regarding loan lock-up periods, we are introducing \textbf{Open and Close-term Pools} within Arkis Protocol. Open Term Pools offer the flexibility for both lenders and borrowers to withdraw assets or close margin accounts at any time, provided that all Liquidity Constraints are met.
+
+Conversely, Close-Term Pools impose stricter regulations, preventing both lenders from withdrawing funds prior to the \textbf{Expiration Date} - specific parameter set for each liquidity pool. Similarly, Asset Managers are not permitted to close their Margin Accounts before this date.
+
+A notable application of Close-Term Pools involves the use of Pendle protocol PT tokens. These tokens offer a guaranteed yield at their expiry date, allowing an Asset Manager to use a PT position as collateral to borrow additional PT tokens from a Close-Term Arkis Liquidity Pool. If the liquidity pool’s expiration date aligns closely with that of the PT tokens, the Asset Manager benefits from a guaranteed and predictable yield upon the tokens' expiry, while the lender benefits from a guaranteed lending APY.
+
+This setup allows Arkis Close-Term Pools featuring Pendle PT tokens to be utilised by Asset Managers to develop investment strategies that resemble bond investments, providing attractive returns and performance profiles.
+
+
+\section{Conclusions}
+The paper describes the process of calculating maintenance margin requirements using scenario analysis, Reference Price, Liquidation Routing, Mark Price, and Market Impact Factor to manage risk in a cross-chain DeFi ecosystem. The article provides a detailed explanation of these concepts and metrics, including how to estimate the Market Impact Factor for different types of DEXs and perform scenario analysis of constant-product and concentrated liquidity AMMs. 
+
+Further research will include building a more sophisticated Liquidation Routing system, which should be more robust and decrease market impact and slippage.
+
+
+
+\bibliographystyle{plain}
+\bibliography{references.bib}
+
+\newpage
+
+\begin{appendices}
+\section{Arkis Protocol Whitelisted Assets/Pools/DEXs}
+Whitelisted tokens:
+\begin{itemize}
+	\item wETH
+	\item wstETH, stETH
+	\item wBTC
+	\item DAI
+	\item USDT
+	\item USDC
+	\item FRAX
+	\item CRV, cvxCRV
+	\item FXS
+	\item LIDO
+	\item MATIC
+\end{itemize}
+Leverage tokens: 
+\begin{itemize}
+	\item wETH
+	\item wstETH
+	\item wBTC
+	\item DAI
+	\item USDC
+	\item FRAX
+\end{itemize}
+Whitelisted DEXs(Pools):
+\begin{itemize}
+	\item Uniswap V2/V3: DAI-USDC, WBTC-WETH, USDC-WETH, USDC-USDT.
+	\item Curve/Convex Finance/Frax Convex: ETH-wstETH, DAI-USDC-USDT, ETH-USDT-wBTC, CRV-ETH, FRAX-USDC, DAI-FRAX-USDC-USDT, CRV-cvxCRV (Curve only).
+	\item 1INCH (swaps): ETH, wstETH, WETH, DAI, USDC, USDT, WBTC, CRV, CVX, FXS, MATIC, LIDO.
+	\item Pancake Swap: USDT-USDC
+	\item AAVE: ETH(wETH), WBTC, USDT, USDC, DAI, wstETH.
+\end{itemize}
+
+
+
+\section{Scenario Analysis Matrix}
+$$\resizebox{\textwidth}{!}{\begin{tabular}{|l|c|c|c|c|c|c|c|c|c|c|c|c|c|}
+  \hline
+   & wETH(ETH) & wstETH & wBTC & DAI & USDT & USDC & FRAX & CRV & FXS & LIDO & MATIC \\
+  \hline
+  wETH(ETH) & - & -10$\%$ & -10$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$  \\
+  wstETH &  & - & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$\\
+  wBTC &  &  & - & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ \\
+  DAI &  &  &  & - & -10$\%$ & -10$\%$ & -10$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ \\
+  USDT &  &  &  &  & - & -10$\%$ & -10$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$\\
+ USDC &  &  &  &  & -10$\%$ & - & -10$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$\\
+  \hline
+\end{tabular}}$$
+\end{appendices}
+
+
+\end{document}
