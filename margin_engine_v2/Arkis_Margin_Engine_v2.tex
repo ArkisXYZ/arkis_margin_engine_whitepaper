@@ -168,6 +168,50 @@ A notable application of Close-Term Pools involves the use of Pendle protocol PT
 
 This setup allows Arkis Close-Term Pools featuring Pendle PT tokens to be utilised by Asset Managers to develop investment strategies that resemble bond investments, providing attractive returns and performance profiles.
 
+\section{Introducing Perpetual Futures to Arkis v2}
+\subsection{Realised, Unrealised, Funding P\&L}
+Now, let’s delve into the integration of perpetual futures within the Arkis Margin Engine and introduce key concepts of trading, including realised, unrealised, and funding profit and loss (P\&L).
+
+Imagine a scenario where a trader initiates a long BTC-USDT perpetual position for 100 contracts at time $t_{0}$, with a price of $60,000$. At $t_{1}$, the price rises to $61,000$, resulting in an unrealised P\&L of $100,000$ USDT. If the price then drops to $59,000$ at $t_{2}$, the unrealised P\&L becomes $-100,000$ USDT. Unrealised P\&L represents the fluctuating profit or loss as the asset's price changes while the trader holds the position. If the trader decides to close the position at $t_{1}$, at $61,000$, the unrealised P\&L of $100,000$ USDT converts into realised P\&L, a fixed value unaffected by subsequent price changes.
+
+Now, consider if the trader sells only 30 contracts at $t_{1}$. In this case, they realize a profit of $30,000$ USDT $30 * (61,000 - 60,000)$ and still hold 70 contracts, incurring an unrealized P\&L of $70,000$ USDT $70 * (61,000 - 60,000)$. At $t_{2}$, the realised P\&L remains unchanged at $30,000$ USDT, while the unrealised P\&L is recalculated based on the remaining position.
+
+Next, envision a scenario where the trader sells 150 contracts at 𝑡1, resulting in a short position of 50 contracts. Here, the realised P\&L is $100,000$ USDT $100 * (61,000 - 60,000)$, and the unrealised P\&L is zero. At $t_{2}$, the unrealised P\&L becomes $-100,000$ USDT $-50 * (59,000 - 61,000)$.
+
+What’s evident is that both realised and unrealised P\&L are contingent on the trader's past actions, including direction, quantity, and traded price, along with the current asset price.
+
+In addition to capitalising on price changes, traders holding perpetual futures positions are subject to funding payments, known as funding P\&L. When funding rates are positive, long positions pay fees to short position holders, and vice versa for negative rates. Funding intervals and rates may vary across exchanges (e.g., 8 hours on Binance, ByBit, and OKX, and 1 hour on Hyperliquid). Understanding funding P\&L is crucial as it underpins many crypto trading strategies.
+
+Later, we'll illustrate how the Arkis Protocol and Margin Engine leverage perpetual futures funding payments and DeFi protocol yield-generating positions to optimise trading strategies.
+
+\subsection{Integrating perpetual futures into Arkis Margin Engine}
+Before we delve into the details, it's essential to note that the approach outlined in this white paper is not only applicable to centralised perpetual futures but also to decentralised exchange (DEX) venues. However, each CEX and DEX exchange has its own specific considerations that must be factored in. Thus, while the approach serves as a foundational framework for portfolio margining perpetual futures, it must be configured with careful consideration of exchange specifics. For instance, BitMex coin-margined futures entail internal gamma risk, while differences exist between USDT- and USDC-margined futures, especially notable after the depegging of USDC in 2023.
+
+We'll demonstrate the specifics of estimating portfolio risk and margin using examples involving three Asset Managers, each holding Curve TriCRV positions within their Margin Accounts governed by the Arkis Protocol. Finally, we'll explore how Arkis manages access to centralised positions and handles liquidations in transactions involving both CEX and DEX components.
+
+\subsection{Initial Trade Setup}
+Consider the following exchange rates at time $t_{0}$:
+\begin{itemize}
+	\item ETH/USDT: 5000
+	\item CRV/USDT: 0.5
+	\item CRVUSD/USDT: 1.0
+\end{itemize}
+
+\textbf{Asset Manager A} utilises $1,000,000$ worth of USDT Curve TriCrv LP position as collateral to borrow $1,000,000$ USDT from a lender through the Arkis Protocol. They then use the borrowed $1,000,000$ USDT to purchase more Curve TriCRV LP position, resulting in a total TriCRV position worth $2,000,000$ USDT.
+
+\textbf{Asset Manager B} opts to allocate the borrowed USDT into AAVE to earn passive yield. 
+
+Lastly, \textbf{Asset Manager C} allocates $500,000$ USDT to purchase more TriCRV position and sends $500,000$ USDT to their OKX account, governed by Arkis, to be used as margin for hedging their ETH and CRV exposure using short perpetual futures. Asset Manager C aims to maintain delta neutrality by hedging the exchange rate risk of ETH and CRV, assuming that CRVUSD exchange rate risk doesn’t need mitigation.
+
+
+Let's breakdown each Asset Manager's Margin Account composition:
+ 
+
+
+
+
+\section{Conclusions}
+
 
 \section{Conclusions}
 The paper describes the process of calculating maintenance margin requirements using scenario analysis, Reference Price, Liquidation Routing, Mark Price, and Market Impact Factor to manage risk in a cross-chain DeFi ecosystem. The article provides a detailed explanation of these concepts and metrics, including how to estimate the Market Impact Factor for different types of DEXs and perform scenario analysis of constant-product and concentrated liquidity AMMs. 
