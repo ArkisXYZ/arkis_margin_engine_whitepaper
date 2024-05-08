@@ -3,7 +3,7 @@
 \usepackage{amsmath,amssymb}
 
 \usepackage{amsmath}
-\usepackage{graphicx}
+\usepackage{graphics}
 \usepackage{caption}
 \usepackage{graphicx}
 \usepackage{float}
@@ -189,6 +189,8 @@ Before we delve into the details, it's essential to note that the approach outli
 
 We'll demonstrate the specifics of estimating portfolio risk and margin using examples involving three Asset Managers, each holding Curve TriCRV positions within their Margin Accounts governed by the Arkis Protocol. Finally, we'll explore how Arkis manages access to centralised positions and handles liquidations in transactions involving both CEX and DEX components.
 
+\clearpage
+
 \subsection{Initial Trade Setup}
 Consider the following exchange rates at time $t_{0}$:
 \begin{itemize}
@@ -197,21 +199,222 @@ Consider the following exchange rates at time $t_{0}$:
 	\item CRVUSD/USDT: 1.0
 \end{itemize}
 
-\textbf{Asset Manager A} utilises $1,000,000$ worth of USDT Curve TriCrv LP position as collateral to borrow $1,000,000$ USDT from a lender through the Arkis Protocol. They then use the borrowed $1,000,000$ USDT to purchase more Curve TriCRV LP position, resulting in a total TriCRV position worth $2,000,000$ USDT.
+Asset Manager A utilises $1,000,000$ worth of USDT Curve TriCrv LP position as collateral to borrow $1,000,000$ USDT from a lender through the Arkis Protocol. They then use the borrowed $1,000,000$ USDT to purchase more Curve TriCRV LP position, resulting in a total TriCRV position worth $2,000,000$ USDT.
 
-\textbf{Asset Manager B} opts to allocate the borrowed USDT into AAVE to earn passive yield. 
+Asset Manager B opts to allocate the borrowed USDT into AAVE to earn passive yield. 
 
-Lastly, \textbf{Asset Manager C} allocates $500,000$ USDT to purchase more TriCRV position and sends $500,000$ USDT to their OKX account, governed by Arkis, to be used as margin for hedging their ETH and CRV exposure using short perpetual futures. Asset Manager C aims to maintain delta neutrality by hedging the exchange rate risk of ETH and CRV, assuming that CRVUSD exchange rate risk doesn’t need mitigation.
+Lastly, Asset Manager C allocates $500,000$ USDT to purchase more TriCRV position and sends $500,000$ USDT to their OKX account, governed by Arkis, to be used as margin for hedging their ETH and CRV exposure using short perpetual futures. Asset Manager C aims to maintain delta neutrality by hedging the exchange rate risk of ETH and CRV, assuming that CRVUSD exchange rate risk doesn’t need mitigation.
+
+Positions breakdown of each Asset Manager's Margin Account composition is presented in Table I.
+
+% Break the page to ensure the table starts on a new page
+
+\begin{table*}[h]
+\centering
+\begin{tabular}{|p{1.5cm}|p{4.5cm}|p{8cm}|}
+\hline
+\textbf{Asset Manager} & \textbf{TriCRV Position} & \textbf{Other Assets} \\
+\hline
+A & 
+\textbullet{} 133.33 ETH \newline
+\textbullet{} 1333333.333 CRV \newline
+\textbullet{} 666666.66 CRVUSD
+& None \\
+\hline
+B & 
+\textbullet{} 66.66 ETH \newline
+\textbullet{} 666666.666 CRV \newline
+\textbullet{} 333333.333 CRVUSD
+& $1,000,000$ USDT on AAVE \\
+\hline
+C & 
+\textbullet{} 66.66 ETH \newline
+\textbullet{} 666666.666 CRV \newline
+\textbullet{} 333333.333 CRVUSD
+& \textbullet{} $500,000$ USDT on CEX account as margin \newline
+\textbullet{} Short perpetuals: \newline
+  \quad{} \textbullet{} 66.66 on ETH-USDT-SWAP \newline
+  \quad{} \textbullet{} 666666.66 on CRV-USDT-SWAP \\
+\hline
+\end{tabular}
+\caption{Asset Manager Overview}
+\label{tab:asset-manager-overview}
+\end{table*}
+
+The Risk Factor is a function of several factors:
+\begin{itemize}
+	\item Borrowed asset amount.
+	\item Stress-tested portfolio value.
+	\item Liquidation threshold.
+	\item Liquidation fee.
+	\item Implied gas cost of portfolio liquidation.
+	\item Current accrued interest to be paid to a liquidity pool.
+\end{itemize}
 
 
-Let's breakdown each Asset Manager's Margin Account composition:
+For Stress-Tested Portfolio Value and Risk Factor, Arkis Admin must set in advance:
+\begin{enumerate}
+	\item Stress-Tested Matrix ($\boldsymbol{\Omega}$)} (previously name Scenario Matrix in Margin Engine v1).
+	\item Liquidation Threshold: extra haircut applied to all assets in the portfolio.
+	\item Liquidation Fee: Arkis Protocol fee for liquidating a user.
+\end{enumerate}
  
 
+For simplicity, we assume an implied gas cost, liquidation threshold, and liquidation fee of zero.
+
+Let's set the Stress-Tested Matrix as follows:
+
+\begin{table}[H] % Use the 'H' option to enforce the table's position
+\centering
+\begin{tabular}{|p{1cm}|p{1cm}|p{2cm}|p{2cm}|}
+\hline
+& \textbf{ETH} & \textbf{CRV} & \textbf{CRVUSD} \\
+\hline
+\textbf{USDT} & -0.2 & -0.3 & -0.1 \\
+\hline
+\end{tabular}
+\caption{Stress-Tested Matrix}
+\label{tab:correlation-table}
+\end{table}
 
 
+Now, let's calculate the Stress-Tested Portfolio Value and Risk Factor for Asset Manager A and Asset Manager B:
 
-\section{Conclusions}
+\textbf{Asset Manager A Stress-Tested Portfolio Value}:
+$5000*133.33*(1-0.2)+0.5*1333333.3*(1-0.3)+666666.66*(1-0.1) 
+=1,599,986.66$ USDT
 
+\textbf{Asset Manager B Stress-Tested Portfolio Value}:
+$5000*66.66*(1−0.2)+0.5*666666.66*(1-0.3)+333333.33×(1-0.1)+1,000,000
+=1,799,973.3328$ USDT
+
+
+The Risk Factor for Asset Manager A ($RF_{A}$) and Asset Manager B ($RF_{B}$) respectively are:
+$$RF_{A} = 1,599,986.66/1,000,000=1.599$$
+$$RF_{B} = 1,799,973.3328​/1,000,000=1.799$$
+
+Next, we'll delve into the specifics of Stress-Tested Portfolio Value calculations for Asset Manager C.
+
+\subsection{Calculating Stress-Tested Value for a Portfolio Containing Futures Position with USDT Margining Asset and Borrowed Asset}
+
+There are 3 options for CEX component of an Asset Manager:
+\begin{enumerate}
+	\item Margin Asset for futures account where margin asset and borrowed asset are same. 
+	\item Margin asset for futures account and borrowed asset are different (for example, use BTC spot as margin for futures trading).
+	\item Several assets are used as margin for futures trading (portfolio margin). 
+\end{enumerate}
+
+Later we will show that all three cases can be described by one single formula but let's first start from option 1.
+
+Asset Manager C's stress-tested portfolio value encompasses both centralised and decentralised components. To determine the portfolio value of the CEX account, a continuous estimation of the current account value is essential. This estimation factors in realised P\&L, unrealised P\&L, funding P\&L, spot value used as margin, and trading commissions paid. Rather than attempting to manually calculate these factors by processing every trade from the CEX account, the Arkis Margin Engine relies on the risk engines provided by CEX platforms to obtain the portfolio Value Margin. This Value Margin is then utilised to assess whether liquidation of the futures portfolio is necessary.
+
+
+Value Margin gives us current portfolio value in USDT (or USDC for USDC-margined futures) which takes into account:
+\begin{enumerate}
+	\item Realised P\&L.
+	\item Unrealised P\&L.
+	\item Funding fees.
+	\item Trading fees.
+\end{enumerate}
+
+
+Each exchange possesses its unique specifications and endpoints for calculating the Value Margin in accordance with the aforementioned requirements. Let's delve into a breakdown of the official REST API calls utilised for OKX and Bybit to retrieve the Value Margin.
+
+\subsection{Estimating CEX Value Margin}
+
+\begin{itemize}
+	\item For OKX we use \texttt{GET /api/v5/account/balance} and \texttt{adjEq} response field value to get Value Margin.
+	\item 
+\end{itemize}
+
+
+In the case of Asset Manager C, the Value Margin is assumed to be 500,000 USDT, considering zero trading commissions and immediate trade execution. Once the Value Margin of the centralised portfolio is obtained, it's time to calculate the stress-tested portfolio value.
+
+
+Previously, our portfolio stress tests only considered negative scenarios. For example, if a user holds wETH and borrowed USDT, we estimate the portfolio value as if ETH would drop by 20$\%$ relative to USDT. However, with futures positions allowing for both negative and positive exposure, we must incorporate both positive and negative stress tests. For example, with a short ETH position, a drop of ETH leads to a positive change in portfolio value. This necessitates the introduction of \textbf{Positive Stress-Tested Matrix ($\boldsymbol{\Omega^{+}}$)} and \textbf{Negative Stress-Tested Matrix ($\boldsymbol{\Omega^{-}}$)}. 
+
+Let's also denote Positive and Negative Portfolio Stress-Tested Values at time $t$ as $STPV_{t}^{+}$ and $STPV_{t}^{-}$. As a result, final Stress-Tested Portfolio Value is the minimum of two:
+
+$$STPV_{t} = min(STPV_{t}^{+}, STPV_{t}^{-})
+
+$STPV_{t}^{+}$ is obtained by applying positive change in assets values from matrix $\boldsymbol{\Omega^{+}}$ while $STPV_{t}^{-}$ is the result of negative stress-test from $\boldsymbol{\Omega^{-}}$.
+
+Secondly, as we have previously observed Asset Manager's portfolio consists of spot part (can be split between CEX and DEX) and futures (CEX within the current setup but DEX futures exchanges may also be used). As a result, $STPV_{t}^{+}$ is the sum of Positive Spot Stress-Tested Value ($STPV{t}^{Spot+}$) and Positive Futures Stress-Tested Value $STPV_{t}^{Fut+}$:
+$$STPV_{t}^{+} = STPV{t}^{Spot+} + STPV_{t}^{Fut+}$$
+The same applies to Negative Stress-Tested Portfolio Value. By definition, $STPV_{t}^{+}$ and $STPV_{t}^{-}$ are defined as following:
+$$STPV_{t}^{Spot+} = \[
+\sum_{i} \text{spot\_quantity}_{t}^{i} * \text{spot\_price}_{t}^{i} * (1 + \Omega^{+}_{i})
+\]
+
+STPV_{t}^{Spot-} = \[
+\sum_{i} \text{spot\_quantity}_{t}^{i} * \text{spot\_price}_{t}^{i} * (1 - \Omega^{-}_{i})
+\]$$
+
+Where \textbf{$\text{spot\_quantity}_{t}^{i}$} is total allocation of token $i$  across both centralised and decentralised portfolios and \textbf{$\text{spot\_price}_{t}^{i}$} is the price of token $i$ relative to Borrowed Asset, provided by the pool Oracle.  
+
+For example, if a trader has 100 CRV on OKX Spot Account and 1000 CRV in Curve LP position, CRV spot quantity equals 100 + 1000 = 1100. However, \textbf{we don’t include tokens used as margin allocated to futures account}. $\Omega^{+}_{i}, \Omega^{-}_{i}$ are token stress-tested values from Positive and Negative Stress-Tested Matrix.
+ Let's denote $STPV_{t}^{Fut+}$, $STPV_{t}^{Fut-}$ in the following way:
+ 
+ \clearpage
+ 
+$$\[
+\begin{aligned}
+STPV_{t}^{Fut+} &= \text{Margin Value}_{t} \\
+&\quad + \sum_{i} \text{futures\_exposure}_{t}^{i} * \Omega^{+}_{i} \\
+&\quad + \sum_{i} \text{token\_exposure}_{t}^{i} * \Omega^{+}_{i}
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+STPV_{t}^{Fut-} &= \text{Margin Value}_{t} \\
+&\quad + \sum_{i} \text{futures\_exposure}_{t}^{i} * \Omega^{-}_{i} \\
+&\quad + \sum_{i} \text{token\_exposure}_{t}^{i} * \Omega^{-}_{i}
+\end{aligned}
+\]
+
+\]$$
+
+Where \textbf{$\text{futures\_exposure}_{t}^{i}$} is the signed (long/short) futures position value denominated in borrowed asset, and \textbf{$\text{token\_exposure}_{t}^{i}$} is the exposure of spot asset used as margin in borrowed asset terms.
+
+Overall, Arkis Margin Engine tries to answer the question \textbf{“What is the worst-case scenario if there is a significant price increase/decrease in the market?”}. 
+
+\textbf{Important note}: we don’t apply positive stress-tests to pegged assets. For example, for Asset Manager C even in Positive Futures Stress-Tested Value, the value of CRVUSD will be decreased by 10$\%$. Let's take a look at detailed breakdown of how this approach is applied to Asset Manager C.
+\begin{itemize}
+	\item $STPV_{t}^{Spot+} = 5000 * 66.66 * (1+0.2) + 0.5 * 666,666.66 * (1+0.3) + 333,333.333 * (1-0.1) = 1,133,293.33$ USDT.
+	\item $STPV_{t}^{Futures+} = 1,000,000 + (-66.66 * 5000) * 0.2 + (-666,666.66*0.5) * 0.3 + 1,000,000 * 0 =  833,340$ USDT.
+	\item $STPV_{t}^{Spot-} = 5000 * 66.66 * (1-0.2) + 0.5 * 666,666.66 * (1-0.3) + 333,333.333 * (1-0.1) = 799,973.33$ USDT
+	\item $STPV_{t}^{Futures-} = 1,000,000 + (-66.66*5000) * (-0.2) + (-666666.666*0.5) * (-0.3)+ 1,000,000 * 0 =  1,166,660
+$ USDT.
+\end{itemize} 
+
+
+$$STPV_{t}^{+} = 1,133,293.33+833,340 = 1,966,633.33$$
+$$STPV_{t}^{-} = 799,973.33+1,166,660 = 1,966,633.33$$
+
+As you can see 1 000 000 of margined USDT is multiplied by 0 as USDT is the same asset as Borrowed Asset. Secondly, in a perfectly hedged scenario (delta-neutral), both positive and negative stress-tested values are the same. It makes perfect sense as an Asset Manager completely hedged out their directional exposure at time $t$.
+
+Finally, $$RF_{C} = 1,966,633 / 1,000,000 = 1.96$$
+
+One might observe that Asset Manager’s C stress-tested value and Risk Factor are higher compared to Asset Manager A, B. Arkis Margin Engine is designed to give preference (thus higher Risk Factor values) to delta-neutral portfolios. Let’s demonstrate how Risk Factor changes based on trader’s directional exposure. 
+
+
+\subsection{Risk Factor as a Function of Directional Exposure}
+
+Imagine, an Asset Manager has Margin Account which was opened by using 200 ETH as collateral and borrowed 1,000,000 USDT, the price of ETH/USDT is 5000.
+
+1,000,000 USDT was transferred to CEX account to open short futures position in ETH-USDT. Let’s introduce the following estimate of trader's directional exposure for this particular case, $\Delta$ $$\Delta = (\text{ETH spot quantity} + \text{ETH-USDT quantity}) * 5000 / 1,000,000$$
+
+Delta represents level Asset Manager’s directional exposure. For example, in a perfectly hedged scenario the delta is: $$(200 + (-200)) * 5000 / 1 000 000 = 0$$ 
+
+In unhedged scenario, $$(200 + 0) * 5000 / 1 000 000 = 1.0$$ For example, if a trader decides to open short position of 300 ETH-USDT their delta is: $$(200 + (-300))*5000 / 1 000 000 = -0.5$$
+as their exposure has negative skew (200 ETH spot vs 300 short ETH futures). 
+Let’s see how Asset Manager’s Risk Factor changes as a function of delta:
+
+\includegraphics[height=1cm]{images/delta_vs_rf.png}
+
+
+As we can see, perfectly hedged portfolios achieve the highest Risk Factor values, while any directional exposure, both positive and negative, leads to a substantial decrease in Risk Factor.
 
 \section{Conclusions}
 The paper describes the process of calculating maintenance margin requirements using scenario analysis, Reference Price, Liquidation Routing, Mark Price, and Market Impact Factor to manage risk in a cross-chain DeFi ecosystem. The article provides a detailed explanation of these concepts and metrics, including how to estimate the Market Impact Factor for different types of DEXs and perform scenario analysis of constant-product and concentrated liquidity AMMs. 
@@ -226,54 +429,6 @@ Further research will include building a more sophisticated Liquidation Routing 
 \newpage
 
 \begin{appendices}
-\section{Arkis Protocol Whitelisted Assets/Pools/DEXs}
-Whitelisted tokens:
-\begin{itemize}
-	\item wETH
-	\item wstETH, stETH
-	\item wBTC
-	\item DAI
-	\item USDT
-	\item USDC
-	\item FRAX
-	\item CRV, cvxCRV
-	\item FXS
-	\item LIDO
-	\item MATIC
-\end{itemize}
-Leverage tokens: 
-\begin{itemize}
-	\item wETH
-	\item wstETH
-	\item wBTC
-	\item DAI
-	\item USDC
-	\item FRAX
-\end{itemize}
-Whitelisted DEXs(Pools):
-\begin{itemize}
-	\item Uniswap V2/V3: DAI-USDC, WBTC-WETH, USDC-WETH, USDC-USDT.
-	\item Curve/Convex Finance/Frax Convex: ETH-wstETH, DAI-USDC-USDT, ETH-USDT-wBTC, CRV-ETH, FRAX-USDC, DAI-FRAX-USDC-USDT, CRV-cvxCRV (Curve only).
-	\item 1INCH (swaps): ETH, wstETH, WETH, DAI, USDC, USDT, WBTC, CRV, CVX, FXS, MATIC, LIDO.
-	\item Pancake Swap: USDT-USDC
-	\item AAVE: ETH(wETH), WBTC, USDT, USDC, DAI, wstETH.
-\end{itemize}
-
-
-
-\section{Scenario Analysis Matrix}
-$$\resizebox{\textwidth}{!}{\begin{tabular}{|l|c|c|c|c|c|c|c|c|c|c|c|c|c|}
-  \hline
-   & wETH(ETH) & wstETH & wBTC & DAI & USDT & USDC & FRAX & CRV & FXS & LIDO & MATIC \\
-  \hline
-  wETH(ETH) & - & -10$\%$ & -10$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$  \\
-  wstETH &  & - & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$\\
-  wBTC &  &  & - & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ \\
-  DAI &  &  &  & - & -10$\%$ & -10$\%$ & -10$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$ \\
-  USDT &  &  &  &  & - & -10$\%$ & -10$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$\\
- USDC &  &  &  &  & -10$\%$ & - & -10$\%$ & -30$\%$ & -30$\%$ & -30$\%$ & -30$\%$\\
-  \hline
-\end{tabular}}$$
 \end{appendices}
 
 
