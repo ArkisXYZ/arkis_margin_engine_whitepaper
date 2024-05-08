@@ -359,32 +359,26 @@ For example, if a trader has 100 CRV on OKX Spot Account and 1000 CRV in Curve L
  
 $$\[
 \begin{aligned}
-STPV_{t}^{Fut+} &= \text{Margin Value}_{t} \\
-&\quad + \sum_{i} \text{futures\_exposure}_{t}^{i} * \Omega^{+}_{i} \\
-&\quad + \sum_{i} \text{token\_exposure}_{t}^{i} * \Omega^{+}_{i}
+STPV_{t}^{Fut+} &= \text{Margin Value}_{t} +\sum_{i} \text{futures\_exposure}_{t}^{i} * \Omega^{+}_{i}
 \end{aligned}
 \]
 
 \[
 \begin{aligned}
-STPV_{t}^{Fut-} &= \text{Margin Value}_{t} \\
-&\quad + \sum_{i} \text{futures\_exposure}_{t}^{i} * \Omega^{-}_{i} \\
-&\quad + \sum_{i} \text{token\_exposure}_{t}^{i} * \Omega^{-}_{i}
+STPV_{t}^{Fut-} &= \text{Margin Value}_{t} +\sum_{i} \text{futures\_exposure}_{t}^{i} * \Omega^{-}_{i}
 \end{aligned}
 \]
+$$
 
-\]$$
-
-Where \textbf{$\text{futures\_exposure}_{t}^{i}$} is the signed (long/short) futures position value denominated in borrowed asset, and \textbf{$\text{token\_exposure}_{t}^{i}$} is the exposure of spot asset used as margin in borrowed asset terms.
-
+Where \textbf{$\text{futures\_exposure}_{t}^{i}$} is the signed (long/short) futures position value denominated in borrowed asset.
 Overall, Arkis Margin Engine tries to answer the question \textbf{“What is the worst-case scenario if there is a significant price increase/decrease in the market?”}. 
 
 \textbf{Important note}: we don’t apply positive stress-tests to pegged assets. For example, for Asset Manager C even in Positive Futures Stress-Tested Value, the value of CRVUSD will be decreased by 10$\%$. Let's take a look at detailed breakdown of how this approach is applied to Asset Manager C.
 \begin{itemize}
 	\item $STPV_{t}^{Spot+} = 5000 * 66.66 * (1+0.2) + 0.5 * 666,666.66 * (1+0.3) + 333,333.333 * (1-0.1) = 1,133,293.33$ USDT.
-	\item $STPV_{t}^{Futures+} = 1,000,000 + (-66.66 * 5000) * 0.2 + (-666,666.66*0.5) * 0.3 + 1,000,000 * 0 =  833,340$ USDT.
+	\item $STPV_{t}^{Futures+} = 1,000,000 + (-66.66 * 5000) * 0.2 + (-666,666.66*0.5) * 0.3 = 833,340$ USDT.
 	\item $STPV_{t}^{Spot-} = 5000 * 66.66 * (1-0.2) + 0.5 * 666,666.66 * (1-0.3) + 333,333.333 * (1-0.1) = 799,973.33$ USDT
-	\item $STPV_{t}^{Futures-} = 1,000,000 + (-66.66*5000) * (-0.2) + (-666666.666*0.5) * (-0.3)+ 1,000,000 * 0 =  1,166,660
+	\item $STPV_{t}^{Futures-} = 1,000,000 + (-66.66*5000) * (-0.2) + (-666666.666*0.5) * (-0.3) = 1,166,660
 $ USDT.
 \end{itemize} 
 
@@ -392,7 +386,7 @@ $ USDT.
 $$STPV_{t}^{+} = 1,133,293.33+833,340 = 1,966,633.33$$
 $$STPV_{t}^{-} = 799,973.33+1,166,660 = 1,966,633.33$$
 
-As you can see 1 000 000 of margined USDT is multiplied by 0 as USDT is the same asset as Borrowed Asset. Secondly, in a perfectly hedged scenario (delta-neutral), both positive and negative stress-tested values are the same. It makes perfect sense as an Asset Manager completely hedged out their directional exposure at time $t$.
+As you may see in a perfectly hedged scenario (delta-neutral), both positive and negative stress-tested values are the same. It makes perfect sense as an Asset Manager completely hedged out their directional exposure at time $t$.
 
 Finally, $$RF_{C} = 1,966,633 / 1,000,000 = 1.96$$
 
@@ -411,15 +405,169 @@ In unhedged scenario, $$(200 + 0) * 5000 / 1 000 000 = 1.0$$ For example, if a t
 as their exposure has negative skew (200 ETH spot vs 300 short ETH futures). 
 Let’s see how Asset Manager’s Risk Factor changes as a function of delta:
 
-\includegraphics[height=1cm]{images/delta_vs_rf.png}
+{
+\centering
+\includegraphics[width=0.5\textwidth]{images/delta_vs_rf.png}
+}
 
 
-As we can see, perfectly hedged portfolios achieve the highest Risk Factor values, while any directional exposure, both positive and negative, leads to a substantial decrease in Risk Factor.
+As we can see, perfectly hedged portfolios achieve the highest Risk Factor values, while any directional exposure, both positive and negative, leads to a substantial decrease in Risk Factor even though the price of an asset remains unchanged.
+
+\subsection{Calculating Stress-Tested Value for a Portfolio with Futures Position when Margin Asset is different from Borrow Asset
+}
+
+Let’s consider an example where Asset Manager used Pendle EtherFi (weETH) PT token as collateral to borrow wBTC. 
+\begin{itemize}
+	\item wBTC / ETH = 20, wBTC/weETH = 19.5
+	\item USDT/WBTC = 1/50 000
+	\item USDT/ETH = 0.0004, ETH/USDT = 2500
+	\item Collateral: 390 Pendle (weETH) PT tokens (worth 390 / 19.5 = 20 wBTC)
+	\item Borrowed amount: 20 wBTC
+\end{itemize}
+
+In this scenario, a trader faces Bitcoin-Ethereum Risk, positive and negative stress-tested matrices are:
+\begin{itemize}
+	\item ETH/wBTC: $-10/+10\%$
+	\item weETH/wBTC: $-10/+10\%$
+\end{itemize}
+
+Let’s say that half of borrowed wBTC  (10 wBTC) was used to buy more of weETH PT tokens and half of that was swapped to ETH and transferred to CEX account to hedge total exposure of BTC-ETH risk by taking long position in BTC and short position in ETH. 
+As a result, trader’s portfolio is the following:
+
+\begin{itemize}
+	\item 585 Pendle (weETH) PT tokens worth 30 wBTC. 
+	\item 200 ETH on CEX account worth 10 wBTC used as margin to open futures positions.
+	\item Long position in BTC-USDT in 40 contracts. 
+	\item Short position in ETH-USDT in 800 contracts. 
+\end{itemize}
+
+Now, let’s calculate the stress-tested portfolio value. When margining asset does not equal borrowed asset, the formula for futures stress-tested value transforms into the following:
+
+$$\[
+\begin{aligned}
+STPV_{t}^{Fut+} &= \text{Margin Value}_{t} * P_{t}^{USDT} \\
+&\quad + \sum_{i} \text{futures\_exposure}_{t}^{i} * \Omega^{+}_{i} \\
+&\quad + \sum_{i} \text{token\_exposure}_{t}^{i} * \Omega^{+}_{i}
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+STPV_{t}^{Fut-} &= \text{Margin Value}_{t} * P_{t}^{USDT} \\
+&\quad + \sum_{i} \text{futures\_exposure}_{t}^{i} * \Omega^{-}_{i} \\
+&\quad + \sum_{i} \text{token\_exposure}_{t}^{i} * \Omega^{-}_{i}
+\end{aligned}
+\]
+$$
+
+Where $P_{t}^{USDT}$ is the price of USDT relative to borrowed asset and \textbf{$\text{token\_exposure}_{t}^{i}$} is the exposure of spot asset used as margin in borrowed asset terms.
+
+This formula shows us that if the margin asset is different from the borrowed asset - we also must include a stress test of the margining asset value change relative to the borrowed asset. 
+
+In our case, 
+\begin{itemize}
+	\item Margin Value (in USDT) returned by CEX account will be: $200 * 2500 = 500000$ USDT.
+	\item Positive spot stress-tested value: 585 / 19.5 * (1+0.1) = 33 wBTC.
+	\item Positive futures stress-tested value: 500000 * 1/50000 + 200 / 20 * 0.1 + 40 * 0 - 800 / 20 * 0.1  = 7 wBTC
+	\item Positive stress-tested value = 40 wBTC 
+	\item Negative spot stress-tested value: 585 / 19.5 * (1-0.1) = 27 wBTC 
+	\item Negative futures stress-tested value: 500000 * 1/50000 + 200 / 20 * (-0.1) + 40 * 0 - 800 / 20 * -0.1  = 13 wBTC
+	\item Negative stress-tested value = 40 wBTC 
+	\item Portfolio stress-tested value = 40 wBTC
+	\item Risk Factor = 40/20 = 2.0. 
+\end{itemize}
+
+The equation provided in this section is the universal representation of stress-tested portfolio value of future account regardless of margining asset used (same as borrowed/different from borrowed/portfolio of tokens used as margin).
+
+
+\section{Liquidation}
+
+In the final phase of our discussion, we address the liquidation process. While the liquidation process of onchain portfolio constituents (Margin Accounts) remains unchanged and is executed by the protocol, liquidation for CEX accounts requires a different approach. When a trade is initiated, Arkis provides an Asset Manager account on the CEX exchange, adhering to the following setup:
+\begin{itemize}
+	\item Asset Managers can withdraw assets from the Margin Account only to the whitelisted CEX account provided by Arkis.
+	\item Asset Managers can withdraw assets from the CEX account only to the Margin Account, which is controlled through withdrawal whitelists.
+	\item When liquidation is triggered, the Asset Manager's access to the CEX account is revoked, including the deactivation of read/write API keys.
+	\item Arkis can only withdraw assets to the Margin Account address or Liquidity Pool address from which the transaction was initiated.
+\end{itemize}
+
+
+The liquidation process for CEX and DEX components operates simultaneously. While the Arkis Protocol handles liquidating Margin Account positions onchain, the Arkis liquidation engine undertakes the following actions for CEX accounts:
+\begin{itemize}
+	\item Revokes the Asset Manager's trading keys.
+	\item Liquidates all open futures positions.
+	\item Converts all margining assets and USDT into the borrowed asset on the CEX.
+	\item Initiates a transfer of borrowed assets from the CEX account to the Liquidity Pool.
+\end{itemize}
+
+TODO: insert the liquidation diagram. 
+
+\section{Use Cases}
+
+In this section, several use cases and delta-neutral strategies demonstrate how Arkis Protocol with CEX integration can be utilised by an Asset Manager.
+
+\subsection{LST/LRT Carry Trade}
+
+A well-known and widely adopted carry trade is the "Buy the spot - sell futures" strategy. It involves purchasing spot assets (e.g., BTC) and taking a short position in BTC perpetual futures. The goal is to earn a positive funding fee, which is usually the case, from a short perpetual position while maintaining delta-neutrality.
+
+However, DeFi offers an even better opportunity to enhance this trade. Instead of taking a long position in vanilla spot assets, one can utilise yield-bearing tokens to improve profitability. Liquid Staking Tokens (LSTs) like stETH, ETHx, mETH, osETH, or rETH can add up to 6$\%$ extra yield to the trade. Leveraging Arkis, an Asset Manager can potentially earn over 25$\%$ APY of delta-neutral yield. This approach of using LSTs to enhance the investment profile of the carry trade has been successfully adopted by projects like Ethena as part of their Internet Bond.
+
+Taking it a step further, Arkis Protocol allows for the utilisation of LRTs instead of LSTs. For instance, eETH, ezETH, rsETH tokens may offer even higher yield, including rewards and points. Let's examine the theoretical performance of the naive carry trade versus LST carry trade versus LRT carry trade.
+
+Here, we assume that a trader utilizes $\$1M$ worth of their spot/LST/LRT to borrow $\$1M$ of USDT, used as margin, to open a short perpetual position on a CEX. The backtest does not consider the trader's control over CEX futures liquidations, but let's assume that the rebalancing process is managed by an Asset Manager. The purpose of this backtest is not to demonstrate accurate strategy investment performance but rather to illustrate how integrating DeFi primitives (such as LSTs, LRTs) with CEX may enhance a well-known strategy's investment profile.
+
+{
+\centering
+\includegraphics[width=0.5\textwidth]{images/carry_theoretical.png}
+}
+
+We can see that integrating LST/LRT tokens improved the naive strategy return almost twice during the backtested period. 
+
+\subsection{Delta-Neutral Yield Farming}
+
+When providing liquidity to Curve or Uniswap pools, traders are rewarded with fees. However, Asset Managers face exposure to exchange rate risk and impermanent loss. By taking short positions on a CEX account, an Asset Manager can hedge out their risks while still earning rewards for providing liquidity.
+
+A prime example is providing liquidity to the TricryptoUSDT pool on Curve, enhancing yield with Convex, and simultaneously opening short positions in BTC and ETH to hedge out exposure to the wBTC and ETH pool. Additionally, an extra short position in CRV can be opened to hedge out the exchange rate risk of rewards received.
+
+\subsection{Delta-neutral Pendle PT Yield Farming}
+
+The recent surge in LRT activity has led to exceptionally high APYs for PT tokens on the Pendle protocol, offering potential returns of up to 50$\%$. Simultaneously, one can hedge their eETH exchange rate risk by taking a short position in ETH futures on a CEX account, thereby gaining an additional 10$\%$ yield from short perpetuals positions.
+
+Moreover, as PT yield is accrued in LRT tokens, an Asset Manager can dynamically hedge their increasing exposure to ETH to maintain dollar neutrality.
+
+Let’s examine the simulated performance of a delta-neutral strategy on eETH PT tokens. An Asset Manager utilises 1M USDT worth of Pendle PT tokens to borrow 1M USDT and use it as margin to open short ETH positions. For the sake of simplicity, dynamic hedging and transaction costs are not included in the simulation. 
+
+
+{
+\centering
+\includegraphics[width=0.5\textwidth]{images/pendle_theoretical.png}
+}
+
+
+Consequently, the theoretical equity curve becomes more volatile as the Asset Manager's total exposure deviates from the initial neutral position over time. As depicted, by combining DeFi yield-bearing positions with short futures and Arkis leverage, one can significantly enhance trader performance and risk profile. The comparative APYs of each carry trade strategy are provided in the table below:
+
+\begin{table}[H] % Use 'H' to enforce the table's position
+    \centering
+    \begin{tabular}{|p{1.5cm}|p{1cm}|p{1cm}|p{1cm}|p{2cm}|} % Added one more column here
+    \hline
+    & \textbf{Naive} & \textbf{LST} & \textbf{LRT} & \textbf{Pendle PT} \\ % Added header for the new column
+    \hline
+    \textbf{APY($\%$)} & 14.7 & 21.8 & 32.4 & 85.3 \\ % Sample value for the new column
+    \hline
+    \end{tabular}
+    \caption{Comparative APYs of Naive, LST, LRT, and Pendle strategies}
+    \label{tab:apy-table}
+\end{table}
+
+An additional advantage lies in Pendle and Arkis Close-term Pools, where the termination date aligns with the PT token maturity date. As PT tokens lock in yield and close-term pools offer the opportunity to lock in borrow APY, both Lenders and Asset Managers can enjoy guaranteed yields that they can generate on the maturity date. Consequently, Arkis facilitates the creation of investment products with bond-like behaviour.
+
+
 
 \section{Conclusions}
-The paper describes the process of calculating maintenance margin requirements using scenario analysis, Reference Price, Liquidation Routing, Mark Price, and Market Impact Factor to manage risk in a cross-chain DeFi ecosystem. The article provides a detailed explanation of these concepts and metrics, including how to estimate the Market Impact Factor for different types of DEXs and perform scenario analysis of constant-product and concentrated liquidity AMMs. 
+The whitepaper outlined various enhancements to Arkis Margin Engine v1, such as the Partial Withdrawal feature, the addition of Liquidity Risk Manager and Exposure Constraints, and a new protocol design supporting semi-permissionless lending markets within the Arkis platform.
 
-Further research will include building a more sophisticated Liquidation Routing system, which should be more robust and decrease market impact and slippage.
+Furthermore, it delved into the integration of perpetual futures instruments into the Arkis platform. The authors demonstrated that Arkis Margin Engine v2 penalised directional exposure (both positive and negative) while favouring delta-neutral hedged positions. Examples of Risk Factor and Stress-tested portfolio values covered scenarios where the margining asset aligned with the borrowed asset, as well as cases where the margining asset comprised a portfolio of tokens used as collateral for opening futures positions.
+
+Lastly, the whitepaper elucidated the modified mechanics of the Liquidation process, accounting for centralised components. Additionally, it provided several use cases illustrating how Arkis V2 could be leveraged to construct capital-efficient trading strategies that capitalised on both DeFi and CeFi components.
 
 
 
