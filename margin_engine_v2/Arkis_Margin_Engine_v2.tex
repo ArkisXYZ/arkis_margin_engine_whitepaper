@@ -52,7 +52,7 @@
 \begin{document}
  
 \title{Arkis v2: Bridging the Gap Between CEX and DEX Liquidity}
-\author{Proskurin Oleksandr}
+\author{Oleksandr Proskurin}
 
 \maketitle
     \begin{abstract}
@@ -69,13 +69,13 @@ Key findings:
 
 \section{Introduction}
 
-This white paper introduces the latest advancements in the Margin Engine, initially unveiled nearly a year ago. The primary objective of Margin Engine V1 was to address the issue of undercollateralised leverage in the decentralised finance (DeFi) space, enhancing capital efficiency for Asset Managers. It enabled them to collateralize their onchain positions, including tokens and yield-bearing assets from platforms like Curve and Uniswap and to obtain leveraged exposures. This arrangement allowed Asset Managers to secure loans at higher interest rates, compensating Lenders for the added risk associated with undercollateralised leverage.\cite{arkis-v1-whitepaper}
+This white paper introduces the latest advancements in the Margin Engine, initially unveiled nearly a year ago. The primary objective of Margin Engine V1 was to address the issue of undercollateralised leverage in the decentralised finance (DeFi) space, enhancing capital efficiency for Asset Managers. It enabled them to collateralise their onchain positions, including tokens and yield-bearing assets from platforms like Curve and Uniswap and to obtain leveraged exposures. This arrangement allowed Asset Managers to secure loans at higher interest rates, compensating Lenders for the added risk associated with undercollateralised leverage.\cite{arkis-v1-whitepaper}
 
 Moreover, the adoption of a prime brokerage model with dynamically locked collateral in Margin Accounts has bolstered Lender confidence, security, and control over transactions. Despite this, our observations over the past year reveal that reliance solely on DeFi liquidity is insufficient. Asset Managers continue to depend on Centralised Exchanges (CEXs) for primary liquidity, even as decentralised derivative exchanges like Hyperliquid, Vertex, dYdX, GMX, and others have significantly increased their volume share.\cite{coingecko-volumes} Currently, CEXs still offer the highest liquidity and lowest execution costs, alongside the convenience of operational and risk management setups, including prime-brokerage integrations and advancements in mitigating centralised exchange counterparty risks post-FTX crash.
 
 Most DeFi Asset Managers use perpetual futures contracts to hedge their exposure and maintain delta neutrality. However, Margin Engine V1 was unable to accommodate position hedges, thus preventing Asset Managers from fully realising the potential of staying delta neutral. Success and adoption have been notable for projects that integrate the best elements of both centralised finance (CeFi) and DeFi, like in the project Ethena. Ethena's approach, based on the straightforward concept of a carry trade, has seen a significant increase in total value locked (TVL) over the past year. This strategy was further enhanced by incorporating a DeFi element through the use of Liquid Staking Ethereum (LST) tokens, adding another yield-generating mechanism to an already profitable short perpetual position.\cite{ethena-gitbook}
 
-Our observations also underscore that while the CeFi world offers deep liquidity and cost-effective, rapid execution, the DeFi world provides attractive yields. The entire DeFi ecosystem is built on the premise that users can deposit their tokens into protocols to generate yield. Innovations such as Liquid Restaking Tokens (LRT), the Pendle protocol, and narratives around Real World Assets (RWA) have demonstrated that the DeFi ecosystem is evolving into a marketplace where Asset Managers decide how to maximize yield on their tokens.\cite{eigenlayer-whitepaper}\cite{pendle-whitepaper}
+Our observations also underscore that while the CeFi world offers deep liquidity and cost-effective, rapid execution, the DeFi world provides attractive yields. The entire DeFi ecosystem is built on the premise that users can deposit their tokens into protocols to generate yield. Innovations such as Liquid Restaking Tokens (LRT), the Pendle protocol, and narratives around Real World Assets (RWA) have demonstrated that the DeFi ecosystem is evolving into a marketplace where Asset Managers decide how to maximise yield on their tokens.\cite{eigenlayer-whitepaper}\cite{pendle-whitepaper}
 
 Therefore, it is imperative for decentralised prime-brokers to integrate a CEX component to fully unlock potential and enhance capital efficiency for their clients.
 
@@ -105,7 +105,7 @@ The Partial Withdrawal feature enables Asset Managers to use yield-bearing posit
 
 Additionally, Asset Managers can borrow assets and place them into yield-bearing positions. If the value of these positions increases significantly, they may wish to withdraw the generated surplus to their wallet or CEX account. It's important to note that partial withdrawal is only permissible when the total value of the Margin Account substantially exceeds the amount of the borrowed asset. This condition can be met either by initiating an overcollateralised loan or by allowing an undercollateralised loan to appreciate in value until it becomes substantially overcollateralised.
 
-The operation of the Partial Withdrawal feature is governed by a \textbf{"Withdraw List Tokens"} — a specified list of tokens eligible for partial withdrawal. This list informs Asset Managers about which assets can be partially withdrawn.
+The operation of the Partial Withdrawal feature is governed by a \textbf{"Withdrawal List Tokens"} — a specified list of tokens eligible for partial withdrawal. This list informs Asset Managers about which assets can be partially withdrawn.
 
 Furthermore, we introduce the \textbf{Withdrawal Haircut} parameter, which is applied to all tokens in the Margin Account when calculating the Risk Factor to determine if a partial withdrawal is feasible. This precautionary measure discounts the portfolio's value to mitigate risks associated with funds being withdrawn from Arkis’ controlled environment. It also helps prevent potential token price manipulation intended to artificially inflate the portfolio value.
 
@@ -141,7 +141,7 @@ Each Lending Pool within Arkis can be described by the following parameters:
 	\item Maximum Loan-to-Value (LTV) Ratio: The ratio Borrowed Asset Amount to collateral value.
 	\item Borrowed Asset.
 	\item Whitelisted Tokens: Tokens allowed to be operated by an Asset Manager borrowing from a pool.
-	\item Withdraw List Tokens: Tokens eligible for Partial Withdrawal.
+	\item Withdrawal List Tokens List Tokens: Tokens eligible for Partial Withdrawal.
 	\item Collateral Tokens: Tokens that can be used as collateral to take a loan.
 	\item Supply/Borrow APY, Interest Rate Model.
 	\item Whitelisted Protocols/Pools/Operations.
@@ -174,7 +174,7 @@ Now, let’s delve into the integration of perpetual futures within the Arkis Ma
 
 Imagine a scenario where a trader initiates a long BTC-USDT perpetual position for 100 contracts at time $t_{0}$, with a price of $60,000$. At $t_{1}$, the price rises to $61,000$, resulting in an unrealised P\&L of $100,000$ USDT. If the price then drops to $59,000$ at $t_{2}$, the unrealised P\&L becomes $-100,000$ USDT. Unrealised P\&L represents the fluctuating profit or loss as the asset's price changes while the trader holds the position. If the trader decides to close the position at $t_{1}$, at $61,000$, the unrealised P\&L of $100,000$ USDT converts into realised P\&L, a fixed value unaffected by subsequent price changes.
 
-Now, consider if the trader sells only 30 contracts at $t_{1}$. In this case, they realize a profit of $30,000$ USDT $30 * (61,000 - 60,000)$ and still hold 70 contracts, incurring an unrealized P\&L of $70,000$ USDT $70 * (61,000 - 60,000)$. At $t_{2}$, the realised P\&L remains unchanged at $30,000$ USDT, while the unrealised P\&L is recalculated based on the remaining position.
+Now, consider if the trader sells only 30 contracts at $t_{1}$. In this case, they realize a profit of $30,000$ USDT $30 * (61,000 - 60,000)$ and still hold 70 contracts, incurring an unrealised P\&L of $70,000$ USDT $70 * (61,000 - 60,000)$. At $t_{2}$, the realised P\&L remains unchanged at $30,000$ USDT, while the unrealised P\&L is recalculated based on the remaining position.
 
 Next, envision a scenario where the trader sells 150 contracts at 𝑡1, resulting in a short position of 50 contracts. Here, the realised P\&L is $100,000$ USDT $100 * (61,000 - 60,000)$, and the unrealised P\&L is zero. At $t_{2}$, the unrealised P\&L becomes $-100,000$ USDT $-50 * (59,000 - 61,000)$.
 
@@ -185,11 +185,11 @@ In addition to capitalising on price changes, traders holding perpetual futures 
 Later, we'll illustrate how the Arkis Protocol and Margin Engine leverage perpetual futures funding payments and DeFi protocol yield-generating positions to optimise trading strategies.
 
 \subsection{Integrating perpetual futures into Arkis Margin Engine}
-Before we delve into the details, it's essential to note that the approach outlined in this white paper is not only applicable to centralised perpetual futures but also to decentralised exchange (DEX) venues. However, each CEX and DEX exchange has its own specific considerations that must be factored in. Thus, while the approach serves as a foundational framework for portfolio margining perpetual futures, it must be configured with careful consideration of exchange specifics. For instance, BitMex coin-margined futures entail internal gamma risk, while differences exist between USDT- and USDC-margined futures, especially notable after the depegging of USDC in 2023.
+Before we delve into the details, it's essential to note that the approach outlined in this white paper is not only applicable to centralised perpetual futures but also to decentralised exchange (DEX) venues. However, each CEX and DEX exchange has its own specific considerations that must be factored in. Thus, while the approach serves as a foundational framework for portfolio margining perpetual futures denominated in stable coins, it must be configured with careful consideration of exchange specifics. For instance, BitMex coin-margined futures entail internal gamma risk, while differences exist between USDT- and USDC-margined futures, especially notable after the depegging of USDC in 2023. It is important to stress that the approach disclosed in the paper applies to stable-coin margined futures. Coin-margined futures are not taken into consideration as of now.
 
 We'll demonstrate the specifics of estimating portfolio risk and margin using examples involving three Asset Managers, each holding Curve TriCRV positions within their Margin Accounts governed by the Arkis Protocol. Finally, we'll explore how Arkis manages access to centralised positions and handles liquidations in transactions involving both CEX and DEX components.
 
-\clearpage
+
 
 \subsection{Initial Trade Setup}
 Consider the following exchange rates at time $t_{0}$:
@@ -231,7 +231,7 @@ C &
 \textbullet{} 66.66 ETH \newline
 \textbullet{} 666666.666 CRV \newline
 \textbullet{} 333333.333 CRVUSD
-& \textbullet{} $500,000$ USDT on CEX account as margin \newline
+& \textbullet{} $1,000,000$ USDT on CEX account as margin \newline
 \textbullet{} Short perpetuals: \newline
   \quad{} \textbullet{} 66.66 on ETH-USDT-SWAP \newline
   \quad{} \textbullet{} 666666.66 on CRV-USDT-SWAP \\
@@ -370,7 +370,7 @@ STPV_{t}^{Fut-} &= \text{Margin Value}_{t} +\sum_{i} \text{futures\_exposure}_{t
 \]
 $$
 
-Where \textbf{$\text{futures\_exposure}_{t}^{i}$} is the signed (long/short) futures position value denominated in borrowed asset.
+Where \textbf{$\text{futures\_exposure}_{t}^{i}$} is the signed (long/short) futures position value denominated in borrowed asset. We use futures Mark Price to get USDT exposure and Oracle price of USDT to borrowed asset to estimate final exposure. price  
 Overall, Arkis Margin Engine tries to answer the question \textbf{“What is the worst-case scenario if there is a significant price increase/decrease in the market?”}. 
 
 \textbf{Important note}: we don’t apply positive stress-tests to pegged assets. For example, for Asset Manager C even in Positive Futures Stress-Tested Value, the value of CRVUSD will be decreased by 10$\%$. Let's take a look at detailed breakdown of how this approach is applied to Asset Manager C.
