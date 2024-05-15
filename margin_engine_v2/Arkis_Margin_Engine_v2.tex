@@ -1,7 +1,7 @@
 \documentclass[conference]{IEEEtran}
+\pagestyle{plain}
 \usepackage[pass]{geometry}
 \usepackage{amsmath,amssymb}
-
 \usepackage{amsmath}
 \usepackage{graphics}
 \usepackage{caption}
@@ -94,7 +94,12 @@ The Arkis Risk team recognizes the crucial importance of liquidity, particularly
 
 Moreover, a key function of the Liquidity Risk Manager is the implementation of \textbf{Exposure Constraints}. These constraints are designed to limit an Asset Manager’s exposure to a specific token, protocol, or pool. Thus, before an Asset Manager can execute transactions through the Margin Account, approvals are required from both the Compliance Manager (to ensure the action or token is whitelisted) and the Liquidity Risk Manager (to verify that the token exposure meets the set Exposure Constraints). These constraints are applied individually to each liquidity pool, but the Arkis risk management team also considers the aggregate exposure across all systems when setting these constraints, ensuring comprehensive risk management.
 
-TODO: add Liquidity Risk Manager diagram.
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{images/Liquidity_Risk_Manager.png}
+\caption{Liquidity Risk Manager Decision Flow}
+\end{figure}
+
 
 
 \subsection{Partial Withdrawal}
@@ -176,7 +181,7 @@ Imagine a scenario where a trader initiates a long BTC-USDT perpetual position f
 
 Now, consider if the trader sells only 30 contracts at $t_{1}$. In this case, they realize a profit of $30,000$ USDT $30 * (61,000 - 60,000)$ and still hold 70 contracts, incurring an unrealised P\&L of $70,000$ USDT $70 * (61,000 - 60,000)$. At $t_{2}$, the realised P\&L remains unchanged at $30,000$ USDT, while the unrealised P\&L is recalculated based on the remaining position.
 
-Next, envision a scenario where the trader sells 150 contracts at 𝑡1, resulting in a short position of 50 contracts. Here, the realised P\&L is $100,000$ USDT $100 * (61,000 - 60,000)$, and the unrealised P\&L is zero. At $t_{2}$, the unrealised P\&L becomes $-100,000$ USDT $-50 * (59,000 - 61,000)$.
+Next, envision a scenario where the trader sells 150 contracts at $t_{1}$, resulting in a short position of 50 contracts. Here, the realised P\&L is $100,000$ USDT $100 * (61,000 - 60,000)$, and the unrealised P\&L is zero. At $t_{2}$, the unrealised P\&L becomes $-100,000$ USDT $-50 * (59,000 - 61,000)$.
 
 What’s evident is that both realised and unrealised P\&L are contingent on the trader's past actions, including direction, quantity, and traded price, along with the current asset price.
 
@@ -203,7 +208,7 @@ Asset Manager A utilises $1,000,000$ worth of USDT Curve TriCrv LP position as c
 
 Asset Manager B opts to allocate the borrowed USDT into AAVE to earn passive yield. 
 
-Lastly, Asset Manager C allocates $500,000$ USDT to purchase more TriCRV position and sends $500,000$ USDT to their OKX account, governed by Arkis, to be used as margin for hedging their ETH and CRV exposure using short perpetual futures. Asset Manager C aims to maintain delta neutrality by hedging the exchange rate risk of ETH and CRV, assuming that CRVUSD exchange rate risk doesn’t need mitigation.
+Lastly, Asset Manager C sends $1,000,000$ USDT to their OKX account, governed by Arkis, to be used as margin for hedging their ETH and CRV exposure using short perpetual futures. Asset Manager C aims to maintain delta neutrality by hedging the exchange rate risk of ETH and CRV, assuming that CRVUSD exchange rate risk doesn’t need mitigation.
 
 Positions breakdown of each Asset Manager's Margin Account composition is presented in Table I.
 
@@ -254,7 +259,7 @@ The Risk Factor is a function of several factors:
 
 For Stress-Tested Portfolio Value and Risk Factor, Arkis Admin must set in advance:
 \begin{enumerate}
-	\item Stress-Tested Matrix ($\boldsymbol{\Omega}$)} (previously name Scenario Matrix in Margin Engine v1).
+	\item Stress-Tested Matrix ($\boldsymbol{\Omega}$)} (previously named Scenario Matrix in Margin Engine v1).
 	\item Liquidation Threshold: extra haircut applied to all assets in the portfolio.
 	\item Liquidation Fee: Arkis Protocol fee for liquidating a user.
 \end{enumerate}
@@ -285,7 +290,7 @@ $5000*133.33*(1-0.2)+0.5*1333333.3*(1-0.3)+666666.66*(1-0.1)
 =1,599,986.66$ USDT
 
 \textbf{Asset Manager B Stress-Tested Portfolio Value}:
-$5000*66.66*(1−0.2)+0.5*666666.66*(1-0.3)+333333.33×(1-0.1)+1,000,000
+$5000*66.66*(1-0.2)+0.5*666666.66*(1-0.3)+333333.33×(1-0.1)+1,000,000
 =1,799,973.3328$ USDT
 
 
@@ -300,14 +305,13 @@ Next, we'll delve into the specifics of Stress-Tested Portfolio Value calculatio
 There are 3 options for CEX component of an Asset Manager:
 \begin{enumerate}
 	\item Margin Asset for futures account where margin asset and borrowed asset are same. 
-	\item Margin asset for futures account and borrowed asset are different (for example, use BTC spot as margin for futures trading).
+	\item Margin asset for futures account and borrowed asset are different (for example, use BTC spot as margin for futures trading while borrowed asset is USDT).
 	\item Several assets are used as margin for futures trading (portfolio margin). 
 \end{enumerate}
 
 Later we will show that all three cases can be described by one single formula but let's first start from option 1.
 
-Asset Manager C's stress-tested portfolio value encompasses both centralised and decentralised components. To determine the portfolio value of the CEX account, a continuous estimation of the current account value is essential. This estimation factors in realised P\&L, unrealised P\&L, funding P\&L, spot value used as margin, and trading commissions paid. Rather than attempting to manually calculate these factors by processing every trade from the CEX account, the Arkis Margin Engine relies on the risk engines provided by CEX platforms to obtain the portfolio Value Margin. This Value Margin is then utilised to assess whether liquidation of the futures portfolio is necessary.
-
+Asset Manager C's stress-tested portfolio value encompasses both centralised and decentralised components. To determine the portfolio value of the CEX account, a continuous estimation of the current account value is essential. This estimation factors in realised P\&L, unrealised P\&L, funding P\&L, spot value used as margin, and trading commissions paid. Rather than attempting to manually calculate these factors by processing every trade from the CEX account, the Arkis Margin Engine relies on the risk engines provided by CEX platforms to obtain the portfolio \textbf{Value Margin}.
 
 Value Margin gives us current portfolio value in USDT (or USDC for USDC-margined futures) which takes into account:
 \begin{enumerate}
@@ -324,7 +328,7 @@ Each exchange possesses its unique specifications and endpoints for calculating 
 
 \begin{itemize}
 	\item For OKX we use \texttt{GET /api/v5/account/balance} and \texttt{adjEq} response field value to get Value Margin.
-	\item 
+	\item For ByBit we use \texttt{GET /v5/account/wallet-balance} and \texttt{totalMarginBalance} response field value. 
 \end{itemize}
 
 
@@ -342,6 +346,8 @@ $STPV_{t}^{+}$ is obtained by applying positive change in assets values from mat
 Secondly, as we have previously observed Asset Manager's portfolio consists of spot part (can be split between CEX and DEX) and futures (CEX within the current setup but DEX futures exchanges may also be used). As a result, $STPV_{t}^{+}$ is the sum of Positive Spot Stress-Tested Value ($STPV{t}^{Spot+}$) and Positive Futures Stress-Tested Value $STPV_{t}^{Fut+}$:
 $$STPV_{t}^{+} = STPV{t}^{Spot+} + STPV_{t}^{Fut+}$$
 The same applies to Negative Stress-Tested Portfolio Value. By definition, $STPV_{t}^{+}$ and $STPV_{t}^{-}$ are defined as following:
+
+\clearpage
 $$STPV_{t}^{Spot+} = \[
 \sum_{i} \text{spot\_quantity}_{t}^{i} * \text{spot\_price}_{t}^{i} * (1 + \Omega^{+}_{i})
 \]
@@ -350,12 +356,12 @@ STPV_{t}^{Spot-} = \[
 \sum_{i} \text{spot\_quantity}_{t}^{i} * \text{spot\_price}_{t}^{i} * (1 - \Omega^{-}_{i})
 \]$$
 
-Where \textbf{$\text{spot\_quantity}_{t}^{i}$} is total allocation of token $i$  across both centralised and decentralised portfolios and \textbf{$\text{spot\_price}_{t}^{i}$} is the price of token $i$ relative to Borrowed Asset, provided by the pool Oracle.  
+Where \textbf{$\text{spot\_quantity}_{t}^{i}$} is total allocation of token $i$  across both centralised (spot account only) and decentralised portfolios and \textbf{$\text{spot\_price}_{t}^{i}$} is the price of token $i$ relative to Borrowed Asset, provided by the pool Oracle.  
 
-For example, if a trader has 100 CRV on OKX Spot Account and 1000 CRV in Curve LP position, CRV spot quantity equals 100 + 1000 = 1100. However, \textbf{we don’t include tokens used as margin allocated to futures account}. $\Omega^{+}_{i}, \Omega^{-}_{i}$ are token stress-tested values from Positive and Negative Stress-Tested Matrix.
+For example, if a trader has 100 CRV on OKX Spot Account and 1000 CRV in Curve LP position, CRV spot quantity equals 100 + 1000 = 1100. However, \textbf{we don't include tokens used as margin allocated to futures account}. $\Omega^{+}_{i}, \Omega^{-}_{i}$ are token stress-tested values from Positive and Negative Stress-Tested Matrix.
  Let's denote $STPV_{t}^{Fut+}$, $STPV_{t}^{Fut-}$ in the following way:
  
- \clearpage
+
  
 $$\[
 \begin{aligned}
@@ -370,8 +376,8 @@ STPV_{t}^{Fut-} &= \text{Margin Value}_{t} +\sum_{i} \text{futures\_exposure}_{t
 \]
 $$
 
-Where \textbf{$\text{futures\_exposure}_{t}^{i}$} is the signed (long/short) futures position value denominated in borrowed asset. We use futures Mark Price to get USDT exposure and Oracle price of USDT to borrowed asset to estimate final exposure. price  
-Overall, Arkis Margin Engine tries to answer the question \textbf{“What is the worst-case scenario if there is a significant price increase/decrease in the market?”}. 
+Where \textbf{$\text{futures\_exposure}_{t}^{i}$} is the signed (long/short) futures position value denominated in borrowed asset. We use futures Mark Price to get USDT exposure and Oracle price of USDT to borrowed asset to estimate final exposure.   
+Overall, Arkis Margin Engine tries to answer the question \textbf{“What is the worst-case scenario if there is a significant price increase/decrease in the market?”}
 
 \textbf{Important note}: we don’t apply positive stress-tests to pegged assets. For example, for Asset Manager C even in Positive Futures Stress-Tested Value, the value of CRVUSD will be decreased by 10$\%$. Let's take a look at detailed breakdown of how this approach is applied to Asset Manager C.
 \begin{itemize}
@@ -499,11 +505,16 @@ The liquidation process for CEX and DEX components operates simultaneously. Whil
 	\item Initiates a transfer of borrowed assets from the CEX account to the Liquidity Pool.
 \end{itemize}
 
-TODO: insert the liquidation diagram. 
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.5\textwidth]{images/Arkis_v2_Liquidation.png}
+\caption{Liquidation Flow of centralized (CEX Sub-Account) and decentralised (Margin Account) components.}
+\end{figure} 
+
 
 \section{Use Cases}
 
-In this section, several use cases and delta-neutral strategies demonstrate how Arkis Protocol with CEX integration can be utilised by an Asset Manager.
+This section demonstrates how an asset manager can use Arkis Protocol with CEX integration through several use cases and delta-neutral strategies.
 
 \subsection{LST/LRT Carry Trade}
 
@@ -526,7 +537,7 @@ We can see that integrating LST/LRT tokens improved the naive strategy return al
 
 When providing liquidity to Curve or Uniswap pools, traders are rewarded with fees. However, Asset Managers face exposure to exchange rate risk and impermanent loss. By taking short positions on a CEX account, an Asset Manager can hedge out their risks while still earning rewards for providing liquidity.
 
-A prime example is providing liquidity to the TricryptoUSDT pool on Curve, enhancing yield with Convex, and simultaneously opening short positions in BTC and ETH to hedge out exposure to the wBTC and ETH pool. Additionally, an extra short position in CRV can be opened to hedge out the exchange rate risk of rewards received.
+A prime example is providing liquidity to the TricryptoUSDT pool on Curve, enhancing yield with Convex, and simultaneously opening short positions in BTC and ETH to hedge out exposure to the wBTC and ETH tokens. Additionally, an extra short position in CRV can be opened to hedge out the exchange rate risk of rewards received.
 
 \subsection{Delta-neutral Pendle PT Yield Farming}
 
